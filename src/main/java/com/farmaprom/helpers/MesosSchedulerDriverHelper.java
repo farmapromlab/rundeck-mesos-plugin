@@ -25,15 +25,16 @@ public class MesosSchedulerDriverHelper {
         String mesosPrincipal = configuration.get("mesos_principal").toString();
         String mesosPassword = configuration.get("mesos_password").toString();
 
-        String password;
-        try {
-            password = getPrivateKeyStorageData(context.getExecutionContext(), mesosPassword);
-        } catch (IOException e) {
-            password = "";
-        }
-
         MesosSchedulerDriver driver;
         if (!Objects.equals(mesosPrincipal, "") && !Objects.equals(mesosPassword, "")) {
+
+            String password;
+            try {
+                password = getPrivateKeyStorageData(context.getExecutionContext(), mesosPassword);
+            } catch (IOException e) {
+                password = "";
+            }
+
             Protos.Credential credential = Protos.Credential.newBuilder()
                     .setPrincipal(mesosPrincipal)
                     .setSecret(password)
