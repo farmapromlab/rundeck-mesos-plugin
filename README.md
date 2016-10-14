@@ -18,11 +18,19 @@
  1) Clone this repo
  2) Build using gradle
             
-        gradle build
+        ./gradlew build
  3) Put `rundeck-mesos-plugin-*.jar` in Rundeck's plugin directory
 
 ## Configuration
 ------------------------------------
+
+### Mesos native library
+
+In order for using this plugin, you must provide Mesos native library either by copying compiled libmesos.so to `/usr/lib/` directory, or by installing Mesos together with Rundeck
+
+### Mesos TASK user
+
+By default Mesos Agent attempts to run task as the `user` who submitted it. Rundeck runs with user `rundeck` so make sure this user exists on every agent, or run agents with option `--no-switch-user`
 
 ### Private registry
  1) Login to you private registry manually
@@ -46,7 +54,9 @@
 ![Alt Screenshot](https://raw.githubusercontent.com/farmapromlab/rundeck-mesos-plugin/master/screenshots/screen.jpg "Rundeck mesos plugin")
  
 ## TODO
- - volumes 
+ - Mounting volumes in Docker containers
+ - KILL job
+ - Randomizing TASK ID's
 
 ## WHY?
 
