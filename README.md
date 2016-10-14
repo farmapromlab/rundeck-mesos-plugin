@@ -16,6 +16,7 @@
 
 #### Building from source
  1) Clone this repo
+ 
  2) Build using gradle
             
         ./gradlew build
