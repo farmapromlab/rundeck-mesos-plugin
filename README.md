@@ -37,10 +37,17 @@
         tar czf docker.tar.gz .docker
         
  3) Put `docker.tar.gz` on every mesos agent that will be running your containers, for example in `/etc/docker.tar.gz`
+
  4) Specify URIs parameter `file:///etc/docker.tar.gz` in your job definition
  
 ## Screenshots
 ------------------------------------
+
+![Alt Screenshot](https://raw.githubusercontent.com/farmapromlab/rundeck-mesos-plugin/master/screenshots/screen.jpg "Rundeck mesos plugin")
  
 ## TODO
  - volumes 
+
+## WHY?
+
+ Rundeck > Chronos
