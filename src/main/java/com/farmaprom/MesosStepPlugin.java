@@ -1,5 +1,6 @@
 package com.farmaprom;
 
+import com.dtolabs.rundeck.core.execution.workflow.steps.FailureReason;
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepException;
 import com.dtolabs.rundeck.core.plugins.Plugin;
 import com.dtolabs.rundeck.core.plugins.configuration.Describable;
@@ -24,6 +25,8 @@ import org.apache.mesos.Protos.FrameworkInfo;
 import org.apache.mesos.Scheduler;
 
 import java.util.*;
+
+import static org.apache.mesos.Protos.TaskState.TASK_FINISHED;
 
 @Plugin(name = MesosStepPlugin.SERVICE_PROVIDER_NAME, service = ServiceNameConstants.WorkflowStep)
 public class MesosStepPlugin implements StepPlugin, Describable {
@@ -120,6 +123,10 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 .build();
     }
 
+    private enum Reason implements FailureReason{
+        ExampleReason
+    }
+
     public void executeStep(final PluginStepContext context, final Map<String, Object> configuration) throws
             StepException {
 
@@ -160,5 +167,9 @@ public class MesosStepPlugin implements StepPlugin, Describable {
         }
 
         MesosTaskHelper.getMesosTaskOutput(loggerWrapper);
+
+        if (TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
+            throw new StepException("Task status: " + loggerWrapper.taskStatus.getState(), Reason.ExampleReason);
+        }
     }
 }
