@@ -18,6 +18,7 @@ class DockerScheduler implements Scheduler {
     private final Double cpu;
     private final Double memory;
     private final Protos.CommandInfo.Builder commandInfoBuilder;
+    private final List<Protos.Volume> volumes;
     private final boolean forcePullImage;
 
     private final LoggerWrapper loggerWrapper;
@@ -32,12 +33,14 @@ class DockerScheduler implements Scheduler {
             LoggerWrapper loggerWrapper,
             int desiredInstances,
             Protos.CommandInfo.Builder commandInfoBuilder,
+            List<Protos.Volume> volumes,
             final Map<String, Object> configuration
 
     ) {
         this.loggerWrapper = loggerWrapper;
         this.desiredInstances = desiredInstances;
         this.commandInfoBuilder = commandInfoBuilder;
+        this.volumes = volumes;
 
         this.imageName = configuration.get("docker_image").toString();
         this.cpu = Double.parseDouble(configuration.get("docker_cpus").toString());
@@ -87,6 +90,9 @@ class DockerScheduler implements Scheduler {
                 Protos.ContainerInfo.Builder containerInfoBuilder = Protos.ContainerInfo.newBuilder();
                 containerInfoBuilder.setType(Protos.ContainerInfo.Type.DOCKER);
                 containerInfoBuilder.setDocker(dockerInfoBuilder.build());
+                if (!volumes.isEmpty()) {
+                    containerInfoBuilder.addAllVolumes(volumes);
+                }
 
                 // create task to run
                 Protos.TaskInfo task = Protos.TaskInfo.newBuilder()

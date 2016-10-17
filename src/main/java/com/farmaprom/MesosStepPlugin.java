@@ -12,10 +12,7 @@ import com.dtolabs.rundeck.plugins.step.StepPlugin;
 import com.dtolabs.rundeck.plugins.util.DescriptionBuilder;
 import com.dtolabs.rundeck.plugins.util.PropertyBuilder;
 
-import com.farmaprom.helpers.EnvironmentHelper;
-import com.farmaprom.helpers.MesosSchedulerDriverHelper;
-import com.farmaprom.helpers.MesosTaskHelper;
-import com.farmaprom.helpers.UrisHelper;
+import com.farmaprom.helpers.*;
 
 import com.farmaprom.logger.LoggerWrapper;
 
@@ -111,11 +108,19 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .defaultValue("128")
                         .build()
                 )
-
                 .property(PropertyBuilder.builder()
                         .string("docker_env_vars")
                         .title("Environment variables")
                         .description("List of newline separated bash environment variables. E.g. FOO=foo\\nBAR=bar")
+                        .required(false)
+                        .defaultValue("")
+                        .renderingOption("displayType", StringRenderingConstants.DisplayType.MULTI_LINE)
+                        .build()
+                )
+                .property(PropertyBuilder.builder()
+                        .string("docker_volumes")
+                        .title("Volumes")
+                        .description("List of newline separated valid volumes. E.g. /tmp/docker:/tmp/docker")
                         .required(false)
                         .defaultValue("")
                         .renderingOption("displayType", StringRenderingConstants.DisplayType.MULTI_LINE)
@@ -146,10 +151,13 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         commandInfo.addAllUris(UrisHelper.crateUrisBuilder(configuration));
 
+        List<Protos.Volume> volumes = VolumesHelper.crateVolumesBuilder(configuration);
+
         Scheduler scheduler = new DockerScheduler(
                 loggerWrapper,
                 1,
                 commandInfo,
+                volumes,
                 configuration
         );
 
