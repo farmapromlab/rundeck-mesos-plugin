@@ -38,7 +38,7 @@ public class MesosTaskHelper {
             System.out.println(logs);
 
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            System.out.println("");
         }
     }
 
@@ -138,8 +138,10 @@ public class MesosTaskHelper {
             JSONObject fileRead = (JSONObject) parser.parse(jsonResponse.getBody().toString());
 
             return fileRead.get("data").toString();
-        } catch (UnirestException | ParseException | InterruptedException e) {
+        } catch (UnirestException | ParseException e) {
             e.printStackTrace();
+        } catch (InterruptedException e) {
+            System.out.println("");
         }
 
         return "";

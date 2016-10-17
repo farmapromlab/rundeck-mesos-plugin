@@ -27,6 +27,7 @@ import org.apache.mesos.Scheduler;
 import java.util.*;
 
 import static org.apache.mesos.Protos.TaskState.TASK_FINISHED;
+import static org.apache.mesos.Protos.TaskState.TASK_KILLED;
 
 @Plugin(name = MesosStepPlugin.SERVICE_PROVIDER_NAME, service = ServiceNameConstants.WorkflowStep)
 public class MesosStepPlugin implements StepPlugin, Describable {
@@ -160,16 +161,34 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 configuration
         );
 
-        int status = driver.run() == Protos.Status.DRIVER_STOPPED ? 0 : 1;
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    driver.run();
+                } catch(Exception e) {
+                    driver.stop(false);
+                }
+            }
+        });
 
-        for (Map.Entry<Integer, String> message : loggerWrapper.getMessages().entrySet()) {
-            System.out.println(message.getValue());
-        }
+        try {
+            thread.start();
+            thread.join();
 
-        MesosTaskHelper.getMesosTaskOutput(loggerWrapper);
+            for (Map.Entry<Integer, String> message : loggerWrapper.getMessages().entrySet()) {
+                System.out.println(message.getValue());
+            }
 
-        if (TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
-            throw new StepException("Task status: " + loggerWrapper.taskStatus.getState(), Reason.ExampleReason);
+            MesosTaskHelper.getMesosTaskOutput(loggerWrapper);
+
+            if (TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
+                throw new StepException("Task status: " + loggerWrapper.taskStatus.getState(), Reason.ExampleReason);
+            }
+        } catch(InterruptedException e) {
+            driver.stop(false);
+
+            throw new StepException("Task status: " + TASK_KILLED, Reason.ExampleReason);
         }
     }
 }
