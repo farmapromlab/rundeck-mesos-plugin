@@ -1,6 +1,7 @@
 # rundeck-mesos-plugin
 ------------------------------------
 [Rundeck](http://rundeck.org) plugin running jobs in Docker containers on Mesos cluster.
+
 [![Build Status](https://travis-ci.org/farmapromlab/rundeck-mesos-plugin.svg?branch=master)](https://travis-ci.org/farmapromlab/rundeck-mesos-plugin)
 
 ## Features
