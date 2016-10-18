@@ -96,7 +96,10 @@ public class MesosTaskHelper {
                 }
             }
 
-            return getLogFileData(loggerWrapper, slaveHostName, directory);
+            String stdout = getLogFileData(slaveHostName, directory, "stdout");
+            String stderr = getLogFileData(slaveHostName, directory, "stderr");
+
+            return stdout + "\r\n" + stderr;
         } catch (UnirestException | ParseException e) {
             e.printStackTrace();
         }
@@ -104,13 +107,8 @@ public class MesosTaskHelper {
         return "";
     }
 
-    private static String getLogFileData(LoggerWrapper loggerWrapper, String slaveHostName, String directory) {
+    private static String getLogFileData(String slaveHostName, String directory, String file) {
         JSONParser parser = new JSONParser();
-
-        String file = "stdout";
-        if (TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
-            file = "stderr";
-        }
 
         HttpResponse<JsonNode> jsonResponse;
         int status, numAttempts = 0;
@@ -137,7 +135,7 @@ public class MesosTaskHelper {
 
             JSONObject fileRead = (JSONObject) parser.parse(jsonResponse.getBody().toString());
 
-            return fileRead.get("data").toString();
+            return "Output " + file + ":\r\n" + fileRead.get("data").toString() + "\r\n";
         } catch (UnirestException | ParseException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
