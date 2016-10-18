@@ -55,8 +55,6 @@ By default Mesos Agent attempts to run task as the `user` who submitted it. Rund
 ![Alt Screenshot](https://raw.githubusercontent.com/farmapromlab/rundeck-mesos-plugin/master/screenshots/screen.jpg "Rundeck mesos plugin")
  
 ## TODO
- - Mounting volumes in Docker containers
- - KILL job
  - Randomizing TASK ID's
 
 ## WHY?
