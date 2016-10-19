@@ -58,6 +58,7 @@ By default Mesos Agent attempts to run task as the `user` who submitted it. Rund
  
 ## TODO
  - Randomizing TASK ID's
+ - Constraints
 
 ## WHY?
 
