@@ -1,13 +1,16 @@
+plugins {
+    id 'pl.allegro.tech.build.axion-release' version '1.4.1'
+}
+
 ext.pluginClassNames='com.farmaprom.MesosStepPlugin'
 ext.rundeckPluginVersion= '1.1'
-
-version '2.6.9'
 
 defaultTasks 'clean','build'
 group 'com.farmaprom'
 apply plugin: 'java'
+apply plugin: 'pl.allegro.tech.build.axion-release'
 sourceCompatibility = 1.8
-
+version '2.6.9'
 
 configurations{
     pluginLibs
@@ -48,6 +51,22 @@ dependencies {
     )
 }
 
+scmVersion {
+    tag {
+        prefix = 'v'
+        versionSeparator = ''
+        def origDeserialize=deserialize
+        //apend .0 to satisfy semver if the tag version is only X.Y
+        deserialize = { config, position, tagName ->
+            def orig = origDeserialize(config, position, tagName)
+            if (orig.split('\\.').length < 3) {
+                orig += ".0"
+            }
+            orig
+        }
+    }
+}
+project.version = scmVersion.version
 
 // task to copy plugin libs to output/lib dir
 task copyToLib(type: Copy) {
