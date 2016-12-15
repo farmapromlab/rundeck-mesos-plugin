@@ -1,0 +1,41 @@
+package com.farmaprom.constraint;
+
+import org.apache.mesos.Protos;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.regex.Pattern;
+
+public class UnlikeConstraint extends Constraint {
+
+    public UnlikeConstraint(String key, String value) {
+        super(key, value);
+    }
+
+    @Override
+    public boolean matches(List<Protos.Attribute> attributes) {
+        for (Protos.Attribute attribute : attributes) {
+            if (!Objects.equals(attribute.getName(), this.getKey())) {
+                continue;
+            }
+            switch (attribute.getType()) {
+                case TEXT:
+                    return !attribute.getText().getValue().matches(this.getValue());
+                case SCALAR:
+                    return !Pattern.compile(this.getValue()).matcher(Double.toString(attribute.getScalar().getValue())).matches();
+                case SET:
+                    for (String string : attribute.getSet().getItemList()) {
+                        if(string.matches(this.getValue())){
+                            return false;
+                        }
+                    }
+                    return true;
+                case RANGES:
+                    break;
+                default:
+            }
+        }
+
+        return false;
+    }
+}

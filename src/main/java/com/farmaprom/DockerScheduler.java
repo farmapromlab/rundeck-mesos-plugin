@@ -13,13 +13,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 class DockerScheduler implements Scheduler {
 
     private final String imageName;
-
     private final int desiredInstances;
     private final Double cpu;
     private final Double memory;
     private final Protos.CommandInfo.Builder commandInfoBuilder;
     private final List<Protos.Volume> volumes;
     private final boolean forcePullImage;
+    private final ConstraintsChecker constraints;
 
     private final LoggerWrapper loggerWrapper;
 
@@ -46,6 +46,7 @@ class DockerScheduler implements Scheduler {
         this.cpu = Double.parseDouble(configuration.get("docker_cpus").toString());
         this.memory = Double.parseDouble(configuration.get("docker_memory").toString());
         this.forcePullImage = Boolean.parseBoolean(configuration.get("docker_force_pull").toString());
+        this.constraints = new ConstraintsChecker(configuration.get("mesos_constraints").toString());
     }
 
     @Override
@@ -69,7 +70,9 @@ class DockerScheduler implements Scheduler {
         loggerWrapper.info("Resource offers with " + offers.size() + " offers" );
 
         for (Protos.Offer offer : offers) {
-
+            if (!constraints.constraintsAllow(offer)) {
+                continue;
+            }
             List<Protos.TaskInfo> tasks = new ArrayList<>();
             if (runningInstances.size() + pendingInstances.size() < desiredInstances) {
 
