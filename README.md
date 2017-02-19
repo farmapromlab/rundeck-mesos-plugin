@@ -36,7 +36,7 @@
 
 In order for using this plugin, you must provide Mesos native library either by copying compiled libmesos.so to `/usr/lib/` directory, or by installing Mesos together with Rundeck.
 
-WARNING: libmesos.so should be compiled specifically for your platform. Please don't mix files compiled on Ubuntu or CentOS with debian platform and conversely. Also restart Rundeck afterwards!
+**WARNING:** libmesos.so should be compiled specifically for your platform. Please don't mix files compiled on Ubuntu or CentOS with debian platform and conversely. Also restart Rundeck afterwards!
 
 ### Mesos TASK user
 
