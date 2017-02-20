@@ -1,5 +1,7 @@
 package com.farmaprom;
 
+import com.dtolabs.rundeck.plugins.step.PluginStepContext;
+import com.farmaprom.helpers.TaskIdGeneratorHelper;
 import com.farmaprom.logger.LoggerWrapper;
 import org.apache.mesos.Protos;
 import org.apache.mesos.Scheduler;
@@ -18,6 +20,7 @@ class DockerScheduler implements Scheduler {
     private final Double memory;
     private final Protos.CommandInfo.Builder commandInfoBuilder;
     private final List<Protos.Volume> volumes;
+    private final PluginStepContext context;
     private final boolean forcePullImage;
     private final ConstraintsChecker constraints;
 
@@ -34,13 +37,15 @@ class DockerScheduler implements Scheduler {
             int desiredInstances,
             Protos.CommandInfo.Builder commandInfoBuilder,
             List<Protos.Volume> volumes,
-            final Map<String, Object> configuration
+            final Map<String, Object> configuration,
+            PluginStepContext context
 
     ) {
         this.loggerWrapper = loggerWrapper;
         this.desiredInstances = desiredInstances;
         this.commandInfoBuilder = commandInfoBuilder;
         this.volumes = volumes;
+        this.context = context;
 
         this.imageName = configuration.get("docker_image").toString();
         this.cpu = Double.parseDouble(configuration.get("docker_cpus").toString());
@@ -78,7 +83,7 @@ class DockerScheduler implements Scheduler {
 
                 // generate a unique task ID
                 Protos.TaskID taskId = Protos.TaskID.newBuilder()
-                        .setValue(Integer.toString(taskIDGenerator.incrementAndGet())).build();
+                        .setValue(TaskIdGeneratorHelper.getTaskId(context)).build();
 
                 loggerWrapper.info("Launching task " + taskId.getValue());
                 pendingInstances.add(taskId.getValue());

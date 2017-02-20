@@ -166,7 +166,8 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 1,
                 commandInfo,
                 volumes,
-                configuration
+                configuration,
+                context
         );
 
 
