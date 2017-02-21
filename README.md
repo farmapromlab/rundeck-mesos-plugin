@@ -75,7 +75,8 @@ Operators:
 - EQUALS
 
 ## TODO
- - Randomizing TASK ID's
+- Refactoring
+- Test
 
 ## WHY?
 
