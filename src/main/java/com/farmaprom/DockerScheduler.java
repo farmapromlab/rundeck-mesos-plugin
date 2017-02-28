@@ -20,6 +20,7 @@ class DockerScheduler implements Scheduler {
     private final Double memory;
     private final Protos.CommandInfo.Builder commandInfoBuilder;
     private final List<Protos.Volume> volumes;
+    private final List<Protos.Parameter> parameters;
     private final PluginStepContext context;
     private final boolean forcePullImage;
     private final ConstraintsChecker constraints;
@@ -37,6 +38,7 @@ class DockerScheduler implements Scheduler {
             int desiredInstances,
             Protos.CommandInfo.Builder commandInfoBuilder,
             List<Protos.Volume> volumes,
+            List<Protos.Parameter> parameters,
             final Map<String, Object> configuration,
             PluginStepContext context
 
@@ -45,6 +47,7 @@ class DockerScheduler implements Scheduler {
         this.desiredInstances = desiredInstances;
         this.commandInfoBuilder = commandInfoBuilder;
         this.volumes = volumes;
+        this.parameters = parameters;
         this.context = context;
 
         this.imageName = configuration.get("docker_image").toString();
@@ -93,6 +96,9 @@ class DockerScheduler implements Scheduler {
                 dockerInfoBuilder.setImage(imageName);
                 dockerInfoBuilder.setNetwork(Protos.ContainerInfo.DockerInfo.Network.BRIDGE);
                 dockerInfoBuilder.setForcePullImage(forcePullImage);
+                if (!parameters.isEmpty()) {
+                    dockerInfoBuilder.addAllParameters(parameters);
+                }
 
                 // container info
                 Protos.ContainerInfo.Builder containerInfoBuilder = Protos.ContainerInfo.newBuilder();
