@@ -134,6 +134,15 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .renderingOption("displayType", StringRenderingConstants.DisplayType.MULTI_LINE)
                         .build()
                 )
+                .property(PropertyBuilder.builder()
+                        .string("docker_parameters")
+                        .title("Parameters")
+                        .description("List of newline separated parameters. E.g. FOO=foo\\nBAR=bar")
+                        .required(false)
+                        .defaultValue("")
+                        .renderingOption("displayType", StringRenderingConstants.DisplayType.MULTI_LINE)
+                        .build()
+                )
                 .build();
     }
 
@@ -161,11 +170,14 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         List<Protos.Volume> volumes = VolumesHelper.crateVolumesBuilder(configuration);
 
+        List<Protos.Parameter> parameters = ParametersHelper.crateParametersBuilder(configuration);
+
         Scheduler scheduler = new DockerScheduler(
                 loggerWrapper,
                 1,
                 commandInfo,
                 volumes,
+                parameters,
                 configuration,
                 context
         );
