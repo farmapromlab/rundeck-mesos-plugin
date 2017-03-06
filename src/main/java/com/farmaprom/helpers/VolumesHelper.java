@@ -8,7 +8,7 @@ import java.util.Map;
 
 public class VolumesHelper {
 
-    public static List<Protos.Volume> crateVolumesBuilder(final Map<String, Object> configuration)
+    public static List<Protos.Volume> createVolumesBuilder(final Map<String, Object> configuration)
     {
         List<Protos.Volume> volumes = new ArrayList<>();
 

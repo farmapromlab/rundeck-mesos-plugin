@@ -6,7 +6,7 @@ import java.util.Map;
 
 public class EnvironmentHelper {
 
-    public static Protos.Environment.Builder crateEnvironmentBuilder(final Map<String, Object> configuration)
+    public static Protos.Environment.Builder createEnvironmentBuilder(final Map<String, Object> configuration)
     {
         Protos.Environment.Builder environment = Protos.Environment.newBuilder();
 

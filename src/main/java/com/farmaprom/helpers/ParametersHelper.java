@@ -8,7 +8,7 @@ import java.util.Map;
 
 public class ParametersHelper {
 
-    public static List<Protos.Parameter> crateParametersBuilder(final Map<String, Object> configuration)
+    public static List<Protos.Parameter> createParametersBuilder(final Map<String, Object> configuration)
     {
         List<Protos.Parameter> parameters = new ArrayList<>();
 

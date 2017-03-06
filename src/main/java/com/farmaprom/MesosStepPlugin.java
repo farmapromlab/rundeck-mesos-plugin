@@ -164,13 +164,13 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 .setValue(configuration.get("docker_command").toString())
                 .setShell(true);
 
-        commandInfo.setEnvironment(EnvironmentHelper.crateEnvironmentBuilder(configuration).build());
+        commandInfo.setEnvironment(EnvironmentHelper.createEnvironmentBuilder(configuration).build());
 
         commandInfo.addAllUris(UrisHelper.crateUrisBuilder(configuration));
 
-        List<Protos.Volume> volumes = VolumesHelper.crateVolumesBuilder(configuration);
+        List<Protos.Volume> volumes = VolumesHelper.createVolumesBuilder(configuration);
 
-        List<Protos.Parameter> parameters = ParametersHelper.crateParametersBuilder(configuration);
+        List<Protos.Parameter> parameters = ParametersHelper.createParametersBuilder(configuration);
 
         Scheduler scheduler = new DockerScheduler(
                 loggerWrapper,
