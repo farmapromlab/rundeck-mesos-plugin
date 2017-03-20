@@ -10,7 +10,6 @@ import org.apache.mesos.SchedulerDriver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 class DockerScheduler implements Scheduler {
 
@@ -30,8 +29,6 @@ class DockerScheduler implements Scheduler {
     private final List<String> pendingInstances = new ArrayList<>();
 
     private final List<String> runningInstances = new ArrayList<>();
-
-    private final AtomicInteger taskIDGenerator = new AtomicInteger();
 
     DockerScheduler(
             LoggerWrapper loggerWrapper,
@@ -59,7 +56,7 @@ class DockerScheduler implements Scheduler {
 
     @Override
     public void registered(SchedulerDriver schedulerDriver, Protos.FrameworkID frameworkID, Protos.MasterInfo masterInfo) {
-        loggerWrapper.info("Registered master=" + masterInfo.getIp() + ":" + masterInfo.getPort() +", framework=" + frameworkID);
+        loggerWrapper.debug("Registered master=" + masterInfo.getIp() + ":" + masterInfo.getPort() +", framework=" + frameworkID);
 
         loggerWrapper.masterInfo = masterInfo;
         loggerWrapper.frameworkID = frameworkID;
@@ -67,7 +64,7 @@ class DockerScheduler implements Scheduler {
 
     @Override
     public void reregistered(SchedulerDriver schedulerDriver, Protos.MasterInfo masterInfo) {
-        loggerWrapper.info("Re-registered");
+        loggerWrapper.debug("Re-registered");
 
         loggerWrapper.masterInfo = masterInfo;
     }
@@ -75,7 +72,7 @@ class DockerScheduler implements Scheduler {
     @Override
     public void resourceOffers(SchedulerDriver schedulerDriver, List<Protos.Offer> offers) {
 
-        loggerWrapper.info("Resource offers with " + offers.size() + " offers" );
+        loggerWrapper.debug("Resource offers with " + offers.size() + " offers" );
 
         for (Protos.Offer offer : offers) {
             if (!constraints.constraintsAllow(offer)) {
@@ -88,7 +85,7 @@ class DockerScheduler implements Scheduler {
                 Protos.TaskID taskId = Protos.TaskID.newBuilder()
                         .setValue(TaskIdGeneratorHelper.getTaskId(context)).build();
 
-                loggerWrapper.info("Launching task " + taskId.getValue());
+                loggerWrapper.debug("Launching task " + taskId.getValue());
                 pendingInstances.add(taskId.getValue());
 
                 // docker image info
@@ -128,6 +125,7 @@ class DockerScheduler implements Scheduler {
                 tasks.add(task);
 
                 loggerWrapper.task = task;
+                loggerWrapper.stoptMesosTailWait();
             }
             Protos.Filters filters = Protos.Filters.newBuilder().setRefuseSeconds(1).build();
             schedulerDriver.launchTasks(offer.getId(), tasks, filters);
@@ -137,7 +135,7 @@ class DockerScheduler implements Scheduler {
 
     @Override
     public void offerRescinded(SchedulerDriver schedulerDriver, Protos.OfferID offerID) {
-        loggerWrapper.info("Offer rescinded");
+        loggerWrapper.debug("Offer rescinded");
     }
 
     @Override
@@ -145,7 +143,9 @@ class DockerScheduler implements Scheduler {
 
         final String taskId = taskStatus.getTaskId().getValue();
 
-        loggerWrapper.info("Status update task " + taskId + "  is in state " + taskStatus.getState());
+        loggerWrapper.taskStatus = taskStatus;
+
+        loggerWrapper.debug("Status update task " + taskId + "  is in state " + taskStatus.getState());
 
         switch (taskStatus.getState()) {
             case TASK_RUNNING:
@@ -168,36 +168,34 @@ class DockerScheduler implements Scheduler {
                 break;
         }
 
-        loggerWrapper.taskStatus = taskStatus;
-
-        loggerWrapper.info(
+        loggerWrapper.debug(
                 "Number of instances: pending=" + pendingInstances.size() + ", running=" + runningInstances.size()
         );
     }
 
     @Override
     public void frameworkMessage(SchedulerDriver schedulerDriver, Protos.ExecutorID executorID, Protos.SlaveID slaveID, byte[] bytes) {
-        loggerWrapper.info("Framework message");
+        loggerWrapper.debug("Framework message");
     }
 
     @Override
     public void disconnected(SchedulerDriver schedulerDriver) {
-        loggerWrapper.info("Disconnected");
+        loggerWrapper.debug("Disconnected");
     }
 
     @Override
     public void slaveLost(SchedulerDriver schedulerDriver, Protos.SlaveID slaveID) {
-        loggerWrapper.info("Slave lost");
+        loggerWrapper.debug("Slave lost");
     }
 
     @Override
     public void executorLost(SchedulerDriver schedulerDriver, Protos.ExecutorID executorID, Protos.SlaveID slaveID, int i) {
-        loggerWrapper.info("Executor lost");
+        loggerWrapper.debug("Executor lost");
     }
 
     @Override
     public void error(SchedulerDriver schedulerDriver, String s) {
-        loggerWrapper.info("Error: " + s);
+        loggerWrapper.error("Error: " + s);
     }
 }
 

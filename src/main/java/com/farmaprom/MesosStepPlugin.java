@@ -16,6 +16,7 @@ import com.farmaprom.helpers.*;
 
 import com.farmaprom.logger.LoggerWrapper;
 
+import com.farmaprom.utils.Log;
 import org.apache.mesos.MesosSchedulerDriver;
 import org.apache.mesos.Protos;
 import org.apache.mesos.Protos.FrameworkInfo;
@@ -190,32 +191,59 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 configuration
         );
 
-        Thread thread = new Thread(new Runnable() {
+        MesosTaskHelper mesosTaskHelper = new MesosTaskHelper();
+
+        Thread mesosDriverThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    driver.run();
-                } catch(Exception e) {
-                    driver.stop(false);
+                {
+                    synchronized (this) {
+                        try {
+                            driver.run();
+                        } catch (Exception e) {
+                            driver.stop(false);
+                        }
+                    }
+                }
+            }
+        });
+
+        Thread mesosTaskTailThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                {
+                    synchronized (this) {
+                        try {
+                            mesosTaskHelper.mesosTailStdOut(loggerWrapper);
+                        } catch (Exception e) {
+                            loggerWrapper.stoptMesosTailWait();
+                            mesosTaskHelper.stopTail();
+                        }
+                    }
                 }
             }
         });
 
         try {
-            thread.start();
-            thread.join();
+            mesosDriverThread.start();
+            mesosTaskTailThread.start();
 
-            for (Map.Entry<Integer, String> message : loggerWrapper.getMessages().entrySet()) {
-                System.out.println(message.getValue());
+            mesosDriverThread.join();
+            mesosTaskTailThread.join();
+
+            mesosTaskHelper.getMesosTaskOutput(loggerWrapper);
+
+            for (Map.Entry<Integer, Log> log : loggerWrapper.getMessages().entrySet()) {
+                context.getLogger().log(log.getValue().getLevel(), log.getValue().getMessage());
             }
-
-            MesosTaskHelper.getMesosTaskOutput(loggerWrapper);
 
             if (TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
                 throw new StepException("Task status: " + loggerWrapper.taskStatus.getState(), Reason.ExampleReason);
             }
         } catch(InterruptedException e) {
             driver.stop(false);
+            loggerWrapper.stoptMesosTailWait();
+            mesosTaskHelper.stopTail();
 
             throw new StepException("Task status: " + TASK_KILLED, Reason.ExampleReason);
         }
