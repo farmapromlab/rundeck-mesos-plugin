@@ -15,8 +15,8 @@ import java.util.Objects;
 
 public class MesosTaskHelper {
 
-    private static final int PAGE_LENGTH = 1024;
     private Boolean tail = true;
+    private Integer offset = 0;
 
     public void mesosTailStdOut(LoggerWrapper loggerWrapper) {
         try {
@@ -37,63 +37,80 @@ public class MesosTaskHelper {
 
         String slaveHostName = this.getSlaveHostName(parser, mesosMasterIP, mesosMasterPort, slaveID);
 
-        HttpResponse<JsonNode> jsonResponse;
+        String directory = "";
+        while (Objects.equals(directory, "")) {
+            try {
+                directory = this.getDirectoryTashRunning(
+                        parser,
+                        this.getSlaveHostName(parser, mesosMasterIP, mesosMasterPort, slaveID),
+                        frameworkID,
+                        slaveID,
+                        taskID
+                );
 
-        String directory = this.getDirectoryTashRunning(
-                parser,
-                this.getSlaveHostName(parser, mesosMasterIP, mesosMasterPort, slaveID),
-                frameworkID,
-                slaveID,
-                taskID
-        );
+                if (Objects.equals(directory, "")) {
+                    directory = this.getDirectoryTashFinish(
+                            parser,
+                            this.getSlaveHostName(parser, mesosMasterIP, mesosMasterPort, slaveID),
+                            frameworkID,
+                            slaveID,
+                            taskID
+                    );
+                }
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                System.out.println("");
+            }
+        }
 
         String file = "stdout";
 
+        System.out.println("Output " + file + ":");
+
+        while (this.tail) {
+            this.printLog(parser, slaveHostName, directory, file);
+
+            if (loggerWrapper.taskStatus != null) {
+                Protos.TaskState state = loggerWrapper.taskStatus.getState();
+
+                switch (state) {
+                    case TASK_FAILED:
+                    case TASK_FINISHED:
+                    case TASK_KILLED:
+                    case TASK_LOST:
+                    case TASK_ERROR:
+                        this.tail = false;
+                        break;
+                }
+            }
+        }
+
+        this.printLog(parser, slaveHostName, directory, file);
+    }
+
+    private void printLog(JSONParser parser, String slaveHostName, String directory, String file) {
         try {
-            int offset = 0;
+            HttpResponse<JsonNode> jsonResponse;
 
-            System.out.println("Output " + file + ":");
+            jsonResponse = Unirest.get(this.getMesosFileReadUrl(slaveHostName))
+                    .header("accept", "application/json")
+                    .queryString("path", directory + "/" + file)
+                    .queryString("offset", this.offset)
+                    .asJson();
 
-            while (this.tail) {
-                jsonResponse = Unirest.get(this.getMesosFileReadUrl(slaveHostName))
-                        .header("accept", "application/json")
-                        .queryString("path", directory + "/" + file)
-                        .queryString("offset", offset)
-                        .queryString("length", PAGE_LENGTH)
-                        .asJson();
+            JSONObject fileRead = (JSONObject) parser.parse(jsonResponse.getBody().toString());
 
-                JSONObject fileRead = (JSONObject) parser.parse(jsonResponse.getBody().toString());
+            if (jsonResponse.getStatus() != 200 || fileRead.get("data") == null) {
+                Thread.sleep(2000);
+            }
 
-                if (jsonResponse.getStatus() != 200 || fileRead.get("data") == null) {
-                    Thread.sleep(2000);
-                    continue;
-                }
+            String data = fileRead.get("data").toString();
 
-                String data = fileRead.get("data").toString();
-
-                if (data == null || data.length() == 0) {
-                    Thread.sleep(1000);
-                    continue;
-                }
-
-                offset += data.length();
-
+            if (data == null || data.length() == 0) {
+                Thread.sleep(1000);
+            } else {
+                this.offset += data.length();
                 System.out.print(data);
-
-                if (loggerWrapper.taskStatus != null) {
-                    Protos.TaskState state = loggerWrapper.taskStatus.getState();
-
-                    switch (state) {
-                        case TASK_FAILED:
-                        case TASK_FINISHED:
-                        case TASK_KILLED:
-                        case TASK_LOST:
-                        case TASK_ERROR:
-                            this.tail = false;
-                            break;
-                    }
-                }
-
             }
         } catch (UnirestException | ParseException | InterruptedException e) {
             System.out.println("");
@@ -278,36 +295,31 @@ public class MesosTaskHelper {
         String directory = "";
 
         try {
-            int i = 5;
-            while(this.tail && Objects.equals(directory, "") && i > 1) {
-                HttpResponse<String> statsResponse = Unirest.post("http://" + slaveHostName + ":5051/state.json")
-                        .asString();
+            HttpResponse<String> statsResponse = Unirest.post("http://" + slaveHostName + ":5051/state.json")
+                    .asString();
 
-                JSONObject jsonBody = (JSONObject) parser.parse(statsResponse.getBody());
+            JSONObject jsonBody = (JSONObject) parser.parse(statsResponse.getBody());
 
-                JSONArray completedFrameworks = (JSONArray) jsonBody.get("frameworks");
-                for (Object completedFramework : completedFrameworks) {
-                    JSONObject framework = (JSONObject) parser.parse(completedFramework.toString());
-                    if (Objects.equals(executeFrameworkID, framework.get("id").toString())) {
-                        JSONArray completedExecutors = (JSONArray) framework.get("executors");
-                        for (Object completedExecutor : completedExecutors) {
-                            JSONObject executor = (JSONObject) parser.parse(completedExecutor.toString());
-                            if (Objects.equals(taskID, executor.get("id").toString())) {
-                                JSONArray completedTasks = (JSONArray) executor.get("tasks");
-                                for (Object completedTask : completedTasks) {
-                                    JSONObject task = (JSONObject) parser.parse(completedTask.toString());
-                                    if (Objects.equals(slaveID, task.get("slave_id").toString())) {
-                                        directory = executor.get("directory").toString();
-                                    }
+            JSONArray completedFrameworks = (JSONArray) jsonBody.get("frameworks");
+            for (Object completedFramework : completedFrameworks) {
+                JSONObject framework = (JSONObject) parser.parse(completedFramework.toString());
+                if (Objects.equals(executeFrameworkID, framework.get("id").toString())) {
+                    JSONArray completedExecutors = (JSONArray) framework.get("executors");
+                    for (Object completedExecutor : completedExecutors) {
+                        JSONObject executor = (JSONObject) parser.parse(completedExecutor.toString());
+                        if (Objects.equals(taskID, executor.get("id").toString())) {
+                            JSONArray completedTasks = (JSONArray) executor.get("tasks");
+                            for (Object completedTask : completedTasks) {
+                                JSONObject task = (JSONObject) parser.parse(completedTask.toString());
+                                if (Objects.equals(slaveID, task.get("slave_id").toString())) {
+                                    directory = executor.get("directory").toString();
                                 }
                             }
                         }
                     }
                 }
-                i--;
-                Thread.sleep(1000);
             }
-        } catch (UnirestException | InterruptedException | ParseException e) {
+        } catch (UnirestException | ParseException e) {
             e.printStackTrace();
         }
 
