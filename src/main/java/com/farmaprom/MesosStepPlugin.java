@@ -237,7 +237,10 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 context.getLogger().log(log.getValue().getLevel(), log.getValue().getMessage());
             }
 
-            if (TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
+            if (loggerWrapper.taskStatus != null && TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
+
+                this.addTaskErrorLog(context, loggerWrapper);
+
                 throw new StepException("Task status: " + loggerWrapper.taskStatus.getState(), Reason.ExampleReason);
             }
         } catch(InterruptedException e) {
@@ -245,7 +248,17 @@ public class MesosStepPlugin implements StepPlugin, Describable {
             loggerWrapper.stoptMesosTailWait();
             mesosTaskHelper.stopTail();
 
+            this.addTaskErrorLog(context, loggerWrapper);
+
             throw new StepException("Task status: " + TASK_KILLED, Reason.ExampleReason);
+        }
+    }
+
+    private void addTaskErrorLog(PluginStepContext context, LoggerWrapper loggerWrapper)
+    {
+        if (loggerWrapper.taskStatus != null) {
+            context.getLogger().log(0, loggerWrapper.taskStatus.getMessage());
+            context.getLogger().log(0, loggerWrapper.taskStatus.getReason().toString());
         }
     }
 }
