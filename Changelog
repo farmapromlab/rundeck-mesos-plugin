@@ -1,0 +1,9 @@
+v0.4
+ - docker parameters (by haosdent)
+ - fetching logs in real-time
+v0.3
+ - proper task's name and id
+v0.2
+ - added constraints
+v0.1
+ - PoC
