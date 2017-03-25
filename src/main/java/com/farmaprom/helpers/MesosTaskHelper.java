@@ -173,6 +173,10 @@ public class MesosTaskHelper {
         return "http://" + slaveHostName + ":5051/files/read.json";
     }
 
+    private String getMesosFileDownloadUrl(String slaveHostName) {
+        return "http://" + slaveHostName + ":5051/files/download";
+    }
+
     private String getMesosTaskLogs(JSONParser parser, LoggerWrapper loggerWrapper, String mesosMasterIP, Integer mesosMasterPort) {
 
         String frameworkID = this.getFrameworkId(loggerWrapper);
@@ -188,24 +192,20 @@ public class MesosTaskHelper {
     }
 
     private String getLogFileData(String slaveHostName, String directory, String file) {
-        JSONParser parser = new JSONParser();
-
-        HttpResponse<JsonNode> jsonResponse;
+        HttpResponse<String> response;
         int status, numAttempts = 0;
 
         try {
             do {
-                jsonResponse = Unirest.get(this.getMesosFileReadUrl(slaveHostName))
-                        .header("accept", "application/json")
+                response = Unirest.get(this.getMesosFileDownloadUrl(slaveHostName))
                         .queryString("path", directory + "/" + file)
-                        .queryString("offset", 0)
-                        .asJson();
+                        .asString();
 
                 numAttempts++;
 
                 Thread.sleep(1000);
 
-                status = jsonResponse.getStatus();
+                status = response.getStatus();
 
                 if (status == 200) {
                     break;
@@ -213,10 +213,8 @@ public class MesosTaskHelper {
             } while (numAttempts < 10);
 
 
-            JSONObject fileRead = (JSONObject) parser.parse(jsonResponse.getBody().toString());
-
-            return "Output " + file + ":\r\n" + fileRead.get("data").toString() + "\r\n";
-        } catch (UnirestException | ParseException e) {
+            return "Output " + file + ":\r\n" + response.getBody() + "\r\n";
+        } catch (UnirestException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
             System.out.println("");
