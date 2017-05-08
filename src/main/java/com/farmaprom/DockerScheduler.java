@@ -76,6 +76,7 @@ class DockerScheduler implements Scheduler {
 
         for (Protos.Offer offer : offers) {
             if (!constraints.constraintsAllow(offer)) {
+                schedulerDriver.declineOffer(offer.getId());
                 continue;
             }
             List<Protos.TaskInfo> tasks = new ArrayList<>();
@@ -129,7 +130,6 @@ class DockerScheduler implements Scheduler {
             }
             Protos.Filters filters = Protos.Filters.newBuilder().setRefuseSeconds(1).build();
             schedulerDriver.launchTasks(offer.getId(), tasks, filters);
-
         }
     }
 
