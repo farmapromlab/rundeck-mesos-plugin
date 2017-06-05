@@ -6,6 +6,7 @@ import com.farmaprom.logger.LoggerWrapper;
 import org.apache.mesos.Protos;
 import org.apache.mesos.Scheduler;
 import org.apache.mesos.SchedulerDriver;
+import org.apache.mesos.Protos.Resource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,59 +76,75 @@ class DockerScheduler implements Scheduler {
         loggerWrapper.debug("Resource offers with " + offers.size() + " offers" );
 
         for (Protos.Offer offer : offers) {
-            if (!constraints.constraintsAllow(offer)) {
+            if (!constraints.constraintsAllow(offer) ||
+                    runningInstances.size() + pendingInstances.size() >= desiredInstances) {
+                schedulerDriver.declineOffer(offer.getId());
+                schedulerDriver.suppressOffers();
+                continue;
+            }
+
+            Double offerCpus = 0d;
+            Double offerMem = 0d;
+            for (Resource resource : offer.getResourcesList()) {
+              if (resource.getName().equals("cpus")) {
+                offerCpus += resource.getScalar().getValue();
+              } else if (resource.getName().equals("mem")) {
+                offerMem += resource.getScalar().getValue();
+              }
+            }
+            if (offerCpus < cpu || offerMem < memory) {
                 schedulerDriver.declineOffer(offer.getId());
                 continue;
             }
+
             List<Protos.TaskInfo> tasks = new ArrayList<>();
-            if (runningInstances.size() + pendingInstances.size() < desiredInstances) {
+            // generate a unique task ID
+            Protos.TaskID taskId = Protos.TaskID.newBuilder()
+                    .setValue(TaskIdGeneratorHelper.getTaskId(context)).build();
 
-                // generate a unique task ID
-                Protos.TaskID taskId = Protos.TaskID.newBuilder()
-                        .setValue(TaskIdGeneratorHelper.getTaskId(context)).build();
+            loggerWrapper.debug("Launching task " + taskId.getValue());
+            pendingInstances.add(taskId.getValue());
 
-                loggerWrapper.debug("Launching task " + taskId.getValue());
-                pendingInstances.add(taskId.getValue());
-
-                // docker image info
-                Protos.ContainerInfo.DockerInfo.Builder dockerInfoBuilder = Protos.ContainerInfo.DockerInfo.newBuilder();
-                dockerInfoBuilder.setImage(imageName);
-                dockerInfoBuilder.setNetwork(Protos.ContainerInfo.DockerInfo.Network.BRIDGE);
-                dockerInfoBuilder.setForcePullImage(forcePullImage);
-                if (!parameters.isEmpty()) {
-                    dockerInfoBuilder.addAllParameters(parameters);
-                }
-
-                // container info
-                Protos.ContainerInfo.Builder containerInfoBuilder = Protos.ContainerInfo.newBuilder();
-                containerInfoBuilder.setType(Protos.ContainerInfo.Type.DOCKER);
-                containerInfoBuilder.setDocker(dockerInfoBuilder.build());
-                if (!volumes.isEmpty()) {
-                    containerInfoBuilder.addAllVolumes(volumes);
-                }
-
-                // create task to run
-                Protos.TaskInfo task = Protos.TaskInfo.newBuilder()
-                        .setName("task " + taskId.getValue())
-                        .setTaskId(taskId)
-                        .setSlaveId(offer.getSlaveId())
-                        .addResources(Protos.Resource.newBuilder()
-                                .setName("cpus")
-                                .setType(Protos.Value.Type.SCALAR)
-                                .setScalar(Protos.Value.Scalar.newBuilder().setValue(cpu)))
-                        .addResources(Protos.Resource.newBuilder()
-                                .setName("mem")
-                                .setType(Protos.Value.Type.SCALAR)
-                                .setScalar(Protos.Value.Scalar.newBuilder().setValue(memory)))
-                        .setContainer(containerInfoBuilder)
-                        .setCommand(commandInfoBuilder)
-                        .build();
-
-                tasks.add(task);
-
-                loggerWrapper.task = task;
-                loggerWrapper.stoptMesosTailWait();
+            // docker image info
+            Protos.ContainerInfo.DockerInfo.Builder dockerInfoBuilder = Protos.ContainerInfo.DockerInfo.newBuilder();
+            dockerInfoBuilder.setImage(imageName);
+            dockerInfoBuilder.setNetwork(Protos.ContainerInfo.DockerInfo.Network.BRIDGE);
+            dockerInfoBuilder.setForcePullImage(forcePullImage);
+            if (!parameters.isEmpty()) {
+                dockerInfoBuilder.addAllParameters(parameters);
             }
+
+            // container info
+            Protos.ContainerInfo.Builder containerInfoBuilder = Protos.ContainerInfo.newBuilder();
+            containerInfoBuilder.setType(Protos.ContainerInfo.Type.DOCKER);
+            containerInfoBuilder.setDocker(dockerInfoBuilder.build());
+            if (!volumes.isEmpty()) {
+                containerInfoBuilder.addAllVolumes(volumes);
+            }
+
+            // create task to run
+            Protos.TaskInfo task = Protos.TaskInfo.newBuilder()
+                    .setName("task " + taskId.getValue())
+                    .setTaskId(taskId)
+                    .setSlaveId(offer.getSlaveId())
+                    .addResources(Protos.Resource.newBuilder()
+                            .setName("cpus")
+                            .setType(Protos.Value.Type.SCALAR)
+                            .setScalar(Protos.Value.Scalar.newBuilder().setValue(cpu)))
+                    .addResources(Protos.Resource.newBuilder()
+                            .setName("mem")
+                            .setType(Protos.Value.Type.SCALAR)
+                            .setScalar(Protos.Value.Scalar.newBuilder().setValue(memory)))
+                    .setContainer(containerInfoBuilder)
+                    .setCommand(commandInfoBuilder)
+                    .build();
+
+            tasks.add(task);
+
+            loggerWrapper.task = task;
+            loggerWrapper.stoptMesosTailWait();
+
+            // Only accept offer when tasks size greater than 0.
             Protos.Filters filters = Protos.Filters.newBuilder().setRefuseSeconds(1).build();
             schedulerDriver.launchTasks(offer.getId(), tasks, filters);
         }
