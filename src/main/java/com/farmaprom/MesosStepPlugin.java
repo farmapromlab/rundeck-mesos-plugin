@@ -102,6 +102,13 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .build()
                 )
                 .property(PropertyBuilder.builder()
+                        .booleanType("docker_shell")
+                        .title("Docker shell")
+                        .description("Use custom docker command shell")
+                        .defaultValue("false")
+                        .build()
+                )
+                .property(PropertyBuilder.builder()
                         .string("docker_cpus")
                         .title("CPUs")
                         .description("How many CPUs your container needs.")
@@ -161,9 +168,16 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 .setUser("") // Have Mesos fill in the current user.
                 .setFailoverTimeout(0);
 
-        Protos.CommandInfo.Builder commandInfo = Protos.CommandInfo.newBuilder()
-                .setValue(configuration.get("docker_command").toString())
-                .setShell(true);
+        Boolean dockerShell = !Boolean.parseBoolean(configuration.get("docker_shell").toString());
+
+        Protos.CommandInfo.Builder commandInfo = Protos.CommandInfo.newBuilder().setShell(dockerShell);
+
+        if (dockerShell) {
+            commandInfo.setValue(configuration.get("docker_command").toString());
+        } else {
+            List<String> arg = new ArrayList<>(Arrays.asList(configuration.get("docker_command").toString().split("\\s+")));
+            commandInfo.addAllArguments(arg);
+        }
 
         commandInfo.setEnvironment(EnvironmentHelper.createEnvironmentBuilder(configuration).build());
 
