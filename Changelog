@@ -1,3 +1,6 @@
+v0.5
+ - decline offers (+ haosdent fix)
+ - custom docker command shell
 v0.4
  - docker parameters (by haosdent)
  - fetching logs in real-time

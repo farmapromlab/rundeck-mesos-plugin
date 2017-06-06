@@ -1,6 +1,6 @@
 # rundeck-mesos-plugin
 ------------------------------------
-[Rundeck](http://rundeck.org) plugin running jobs in Docker containers on Mesos cluster.
+[Rundeck](http://rundeck.org) plugin for running jobs in Docker containers on Mesos cluster.
 
 [![Build Status](https://travis-ci.org/farmapromlab/rundeck-mesos-plugin.svg?branch=master)](https://travis-ci.org/farmapromlab/rundeck-mesos-plugin)
 
@@ -65,7 +65,7 @@ By default Mesos Agent attempts to run task as the `user` who submitted it. Rund
 
 ## Constraints
 
-You can define where you want your task to be executed by setting constraints on mesos agents hostnames.
+You can define where you want your task to be executed by setting constraints on mesos agents hostnames or other arguments.
 
 ![Alt Screenshot](https://raw.githubusercontent.com/farmapromlab/rundeck-mesos-plugin/master/screenshots/constraints.jpg "Constraints")
 
