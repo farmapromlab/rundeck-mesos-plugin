@@ -222,13 +222,29 @@ public class MesosStepPlugin implements StepPlugin, Describable {
             }
         });
 
-        Thread mesosTaskTailThread = new Thread(new Runnable() {
+        Thread mesosTaskTailStdOutThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 {
                     synchronized (this) {
                         try {
-                            mesosTaskHelper.mesosTailStdOut(loggerWrapper);
+                            mesosTaskHelper.mesosTailStdFile("stdout", loggerWrapper);
+                        } catch (Exception e) {
+                            loggerWrapper.stoptMesosTailWait();
+                            mesosTaskHelper.stopTail();
+                        }
+                    }
+                }
+            }
+        });
+
+        Thread mesosTaskTailStdErrThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                {
+                    synchronized (this) {
+                        try {
+                            mesosTaskHelper.mesosTailStdFile("stderr", loggerWrapper);
                         } catch (Exception e) {
                             loggerWrapper.stoptMesosTailWait();
                             mesosTaskHelper.stopTail();
@@ -240,16 +256,12 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         try {
             mesosDriverThread.start();
-            mesosTaskTailThread.start();
+            mesosTaskTailStdOutThread.start();
+            mesosTaskTailStdErrThread.start();
 
             mesosDriverThread.join();
-            mesosTaskTailThread.join();
-
-            mesosTaskHelper.getMesosTaskOutput(loggerWrapper);
-
-            for (Map.Entry<Integer, Log> log : loggerWrapper.getMessages().entrySet()) {
-                context.getLogger().log(log.getValue().getLevel(), log.getValue().getMessage());
-            }
+            mesosTaskTailStdOutThread.join();
+            mesosTaskTailStdErrThread.join();
 
             if (loggerWrapper.taskStatus != null && TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
 

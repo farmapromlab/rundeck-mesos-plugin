@@ -18,7 +18,7 @@ public class MesosTaskHelper {
     private Boolean tail = true;
     private Integer offset = 0;
 
-    public void mesosTailStdOut(LoggerWrapper loggerWrapper) {
+    public void mesosTailStdFile(String file, LoggerWrapper loggerWrapper) {
         try {
             while (loggerWrapper.mesosTailWait || loggerWrapper.task == null) {
                 Thread.sleep(2000);
@@ -63,10 +63,6 @@ public class MesosTaskHelper {
             }
         }
 
-        String file = "stdout";
-
-        System.out.println("Output " + file + ":");
-
         while (this.tail) {
             this.printLog(parser, slaveHostName, directory, file);
 
@@ -110,7 +106,7 @@ public class MesosTaskHelper {
                 Thread.sleep(1000);
             } else {
                 this.offset += data.length();
-                System.out.print(data);
+                System.out.print("from " + file + ": " + data);
             }
         } catch (UnirestException | ParseException | InterruptedException e) {
             System.out.println("");
@@ -122,6 +118,7 @@ public class MesosTaskHelper {
         this.tail = false;
     }
 
+    /*** pull error file after task completed ***/
     public void getMesosTaskOutput(LoggerWrapper loggerWrapper) {
         JSONParser parser = new JSONParser();
         try {
