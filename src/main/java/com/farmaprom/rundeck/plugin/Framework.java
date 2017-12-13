@@ -302,20 +302,7 @@ public class Framework {
             loggerWrapper.taskStatus = status;
 
             if (status.getState() == TaskState.TASK_FINISHED) {
-                finishedTasks++;
-                if (finishedTasks == totalTasks) {
-
-
-                    lock.lock();
-                    try {
-                        finished = true;
-                        finishedCondition.signal();
-                    } finally {
-                        lock.unlock();
-                    }
-
-                    teardown = true;
-                }
+                taskFinish();
             }
 
             if (status.getState() == TaskState.TASK_LOST ||
@@ -331,7 +318,7 @@ public class Framework {
                                 status.getSource().getValueDescriptor().getName() + "'" +
                                 " with message '" + status.getMessage() + "'");
 
-                teardown = true;
+                taskFinish();
             }
 
             loggerWrapper.stoptMesosTailWait();
@@ -347,6 +334,22 @@ public class Framework {
                     .build());
         }
 
+        private void taskFinish()
+        {
+            finishedTasks++;
+            if (finishedTasks == totalTasks) {
+
+                lock.lock();
+                try {
+                    finished = true;
+                    finishedCondition.signal();
+                } finally {
+                    lock.unlock();
+                }
+
+                teardown = true;
+            }
+        }
 
         private enum State {
             DISCONNECTED,

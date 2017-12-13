@@ -26,13 +26,13 @@ public class LoggerWrapper {
     }
 
     public LoggerWrapper debug(String message) {
-        this.addMessage(5, "Time = " +  LocalDateTime.now() + ", " + message);
+        this.addMessage(5, message);
 
         return this;
     }
 
     public LoggerWrapper error(String message) {
-        this.addMessage(0, "Time = " +  LocalDateTime.now() + ", " + message);
+        this.addMessage(0, message);
 
         return this;
     }
