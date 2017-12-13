@@ -8,8 +8,8 @@ public class TaskIdGeneratorHelper {
 
     public static String getTaskId(PluginStepContext context) {
 
-        String taskId = context.getDataContext().get("job").get("project")
-                + "-" + context.getDataContext().get("job").get("name")
+        String taskId = context.getDataContextObject().get("job").get("project")
+                + "-" + context.getDataContextObject().get("job").get("name")
                 + "-" + UUID.randomUUID().toString();
 
         return StringUtils.replace(taskId.toLowerCase(), " ", "-");
