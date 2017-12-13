@@ -21,6 +21,7 @@ import org.apache.mesos.v1.scheduler.Mesos;
 import org.apache.mesos.v1.scheduler.Scheduler;
 import org.apache.mesos.v1.scheduler.V1Mesos;
 
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.locks.Condition;
@@ -175,9 +176,16 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         Condition finishedCondition = lock.newCondition();
 
+        String hostName = "";
+        try {
+            hostName = java.net.InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException ignored) {
+        }
+
         Protos.FrameworkInfo.Builder frameworkBuilder = Protos.FrameworkInfo.newBuilder()
-                .setUser("")
+                .setUser(System.getProperty("user.name", "default-rundeck-user"))
                 .setFailoverTimeout(0)
+                .setHostname(hostName)
                 .setName("Rundeck Mesos Plugin")
                 .addCapabilities(Protos.FrameworkInfo.Capability.newBuilder().setType(Protos.FrameworkInfo.Capability.Type.TASK_KILLING_STATE));
 
