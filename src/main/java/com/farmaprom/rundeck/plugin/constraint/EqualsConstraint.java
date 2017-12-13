@@ -1,6 +1,6 @@
-package com.farmaprom.constraint;
+package com.farmaprom.rundeck.plugin.constraint;
 
-import org.apache.mesos.Protos;
+import org.apache.mesos.v1.Protos;
 
 import java.util.List;
 import java.util.Objects;

@@ -1,8 +1,9 @@
-package com.farmaprom.logger;
+package com.farmaprom.rundeck.plugin.logger;
 
+import org.apache.mesos.v1.Protos;
+
+import java.time.LocalDateTime;
 import java.util.HashMap;
-import com.farmaprom.utils.Log;
-import org.apache.mesos.Protos;
 
 public class LoggerWrapper {
 
@@ -25,13 +26,13 @@ public class LoggerWrapper {
     }
 
     public LoggerWrapper debug(String message) {
-        this.addMessage(5, message);
+        this.addMessage(5, "Time = " +  LocalDateTime.now() + ", " + message);
 
         return this;
     }
 
     public LoggerWrapper error(String message) {
-        this.addMessage(0, message);
+        this.addMessage(0, "Time = " +  LocalDateTime.now() + ", " + message);
 
         return this;
     }

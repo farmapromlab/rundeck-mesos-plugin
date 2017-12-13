@@ -1,6 +1,6 @@
-package com.farmaprom.helpers;
+package com.farmaprom.rundeck.plugin.helpers;
 
-import org.apache.mesos.Protos;
+import org.apache.mesos.v1.Protos;
 
 import java.util.ArrayList;
 import java.util.List;

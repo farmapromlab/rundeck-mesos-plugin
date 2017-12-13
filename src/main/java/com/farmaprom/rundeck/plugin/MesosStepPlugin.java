@@ -1,4 +1,4 @@
-package com.farmaprom;
+package com.farmaprom.rundeck.plugin;
 
 import com.dtolabs.rundeck.core.execution.workflow.steps.FailureReason;
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepException;
@@ -12,25 +12,30 @@ import com.dtolabs.rundeck.plugins.step.StepPlugin;
 import com.dtolabs.rundeck.plugins.util.DescriptionBuilder;
 import com.dtolabs.rundeck.plugins.util.PropertyBuilder;
 
-import com.farmaprom.helpers.*;
+import com.farmaprom.rundeck.plugin.helpers.*;
+import com.farmaprom.rundeck.plugin.logger.LoggerWrapper;
+import com.farmaprom.rundeck.plugin.logger.Log;
 
-import com.farmaprom.logger.LoggerWrapper;
-
-import com.farmaprom.utils.Log;
-import org.apache.mesos.MesosSchedulerDriver;
-import org.apache.mesos.Protos;
-import org.apache.mesos.Protos.FrameworkInfo;
-import org.apache.mesos.Scheduler;
+import org.apache.mesos.v1.Protos;
+import org.apache.mesos.v1.scheduler.Mesos;
+import org.apache.mesos.v1.scheduler.Scheduler;
+import org.apache.mesos.v1.scheduler.V1Mesos;
 
 import java.util.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-import static org.apache.mesos.Protos.TaskState.TASK_FINISHED;
-import static org.apache.mesos.Protos.TaskState.TASK_KILLED;
+import static org.apache.mesos.v1.Protos.TaskState.TASK_FINISHED;
+import static org.apache.mesos.v1.Protos.TaskState.TASK_KILLED;
 
 @Plugin(name = MesosStepPlugin.SERVICE_PROVIDER_NAME, service = ServiceNameConstants.WorkflowStep)
 public class MesosStepPlugin implements StepPlugin, Describable {
 
-    static final String SERVICE_PROVIDER_NAME = "com.dtolabs.rundeck.plugin.example.MesosStepPlugin";
+    static final String SERVICE_PROVIDER_NAME = "com.farmaprom.rundeck.plugin.MesosStepPlugin";
+
+    private Mesos mesos;
 
     public Description getDescription() {
 
@@ -42,6 +47,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .string("mesos_address")
                         .title("Mesos address")
                         .description("Mesos master address, zk://localhost:2181/mesos")
+                        .defaultValue("zk://zk:2181/mesos")
                         .required(true)
                         .build()
                 )
@@ -84,6 +90,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .string("docker_image")
                         .title("Docker image")
                         .description("The Docker image to run")
+                        .defaultValue("alpine")
                         .required(true)
                         .build()
                 )
@@ -98,6 +105,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .string("docker_command")
                         .title("Docker command")
                         .description("What command should the container run.")
+                        .defaultValue("ls")
                         .required(true)
                         .build()
                 )
@@ -163,10 +171,15 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         LoggerWrapper loggerWrapper = new LoggerWrapper();
 
-        FrameworkInfo.Builder frameworkBuilder = FrameworkInfo.newBuilder()
+        Lock lock = new ReentrantLock();
+
+        Condition finishedCondition = lock.newCondition();
+
+        Protos.FrameworkInfo.Builder frameworkBuilder = Protos.FrameworkInfo.newBuilder()
+                .setUser("")
+                .setFailoverTimeout(0)
                 .setName("Rundeck Mesos Plugin")
-                .setUser("") // Have Mesos fill in the current user.
-                .setFailoverTimeout(0);
+                .addCapabilities(Protos.FrameworkInfo.Capability.newBuilder().setType(Protos.FrameworkInfo.Capability.Type.TASK_KILLING_STATE));
 
         Boolean dockerShell = !Boolean.parseBoolean(configuration.get("docker_shell").toString());
 
@@ -187,9 +200,13 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         List<Protos.Parameter> parameters = ParametersHelper.createParametersBuilder(configuration);
 
-        Scheduler scheduler = new DockerScheduler(
+        Protos.Credential.Builder credentialBuilder = CredentialHelper.crateCredentialBuilder(frameworkBuilder, configuration);
+
+        Scheduler scheduler = new Framework.DockerScheduler(
+                frameworkBuilder.build(),
                 loggerWrapper,
-                1,
+                lock,
+                finishedCondition,
                 commandInfo,
                 volumes,
                 parameters,
@@ -198,14 +215,6 @@ public class MesosStepPlugin implements StepPlugin, Describable {
         );
 
 
-        MesosSchedulerDriver driver = MesosSchedulerDriverHelper.createMesosSchedulerDriver(
-                context,
-                scheduler,
-                frameworkBuilder,
-                configuration
-        );
-
-        MesosTaskHelper mesosTaskHelper = new MesosTaskHelper();
 
         Thread mesosDriverThread = new Thread(new Runnable() {
             @Override
@@ -213,14 +222,30 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 {
                     synchronized (this) {
                         try {
-                            driver.run();
+                            String mesosAddress = configuration.get("mesos_address").toString();
+                            if (credentialBuilder != null) {
+                                mesos = new V1Mesos(scheduler, mesosAddress, credentialBuilder.build());
+                            } else {
+                                mesos = new V1Mesos(scheduler, mesosAddress);
+                            }
+
+                            lock.lock();
+                            try {
+                                while (!Framework.finished) {
+                                    finishedCondition.await();
+                                }
+                            } finally {
+                                lock.unlock();
+                            }
                         } catch (Exception e) {
-                            driver.stop(false);
+                            teardownFramework(loggerWrapper);
                         }
                     }
                 }
             }
         });
+
+        MesosTaskHelper mesosTaskHelper = new MesosTaskHelper();
 
         Thread mesosTaskTailThread = new Thread(new Runnable() {
             @Override
@@ -247,6 +272,8 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
             mesosTaskHelper.getMesosTaskOutput(loggerWrapper);
 
+            teardownFramework(loggerWrapper);
+
             for (Map.Entry<Integer, Log> log : loggerWrapper.getMessages().entrySet()) {
                 context.getLogger().log(log.getValue().getLevel(), log.getValue().getMessage());
             }
@@ -257,22 +284,30 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
                 throw new StepException("Task status: " + loggerWrapper.taskStatus.getState(), Reason.ExampleReason);
             }
-        } catch(InterruptedException e) {
-            driver.stop(false);
+
+        } catch (CancellationException | InterruptedException e) {
+            throw new StepException("Task status: " + TASK_KILLED, Reason.ExampleReason);
+        } finally {
+            teardownFramework(loggerWrapper);
             loggerWrapper.stoptMesosTailWait();
             mesosTaskHelper.stopTail();
 
             this.addTaskErrorLog(context, loggerWrapper);
-
-            throw new StepException("Task status: " + TASK_KILLED, Reason.ExampleReason);
         }
     }
 
     private void addTaskErrorLog(PluginStepContext context, LoggerWrapper loggerWrapper)
     {
         if (loggerWrapper.taskStatus != null) {
-            context.getLogger().log(0, loggerWrapper.taskStatus.getMessage());
-            context.getLogger().log(0, loggerWrapper.taskStatus.getReason().toString());
+            context.getLogger().log(5, loggerWrapper.taskStatus.getMessage());
+            context.getLogger().log(5, loggerWrapper.taskStatus.getReason().toString());
+        }
+    }
+
+    private void teardownFramework(LoggerWrapper loggerWrapper)
+    {
+        if (mesos != null) {
+            Framework.teardownFramework(mesos, loggerWrapper);
         }
     }
 }

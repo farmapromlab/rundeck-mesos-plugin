@@ -1,14 +1,14 @@
-package com.farmaprom.constraint;
+package com.farmaprom.rundeck.plugin.constraint;
 
-import org.apache.mesos.Protos;
+import org.apache.mesos.v1.Protos;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-public class UnlikeConstraint extends Constraint {
+public class LikeConstraint extends Constraint {
 
-    public UnlikeConstraint(String key, String value) {
+    public LikeConstraint(String key, String value) {
         super(key, value);
     }
 
@@ -20,16 +20,15 @@ public class UnlikeConstraint extends Constraint {
             }
             switch (attribute.getType()) {
                 case TEXT:
-                    return !attribute.getText().getValue().matches(this.getValue());
+                    return attribute.getText().getValue().matches(this.getValue());
                 case SCALAR:
-                    return !Pattern.compile(this.getValue()).matcher(Double.toString(attribute.getScalar().getValue())).matches();
+                    return Pattern.compile(this.getValue()).matcher(Double.toString(attribute.getScalar().getValue())).matches();
                 case SET:
                     for (String string : attribute.getSet().getItemList()) {
                         if(string.matches(this.getValue())){
-                            return false;
+                            return true;
                         }
                     }
-                    return true;
                 case RANGES:
                     break;
                 default:

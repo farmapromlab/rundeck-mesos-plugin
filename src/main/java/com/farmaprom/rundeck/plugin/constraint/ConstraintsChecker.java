@@ -1,24 +1,44 @@
-package com.farmaprom;
+package com.farmaprom.rundeck.plugin.constraint;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.mesos.Protos;
+import org.apache.mesos.v1.Protos;
 
-import com.farmaprom.constraint.Constraint;
-import com.farmaprom.constraint.*;
+import java.util.ArrayList;
+import java.util.List;
 
-import java.util.*;
-
-class ConstraintsChecker {
+public class ConstraintsChecker {
 
     private final String[] constraintsPairs;
 
-    ConstraintsChecker(String constraints) {
+    public ConstraintsChecker(String constraints) {
         if (!StringUtils.isBlank(constraints)) {
             this.constraintsPairs = constraints.split(",");
         } else {
             this.constraintsPairs = new String[0];
         }
 
+    }
+
+    public boolean constraintsAllow(Protos.Offer offer) {
+
+        ArrayList<Constraint> constraints = this.getMatchConstraints();
+
+        if (this.constraintsPairs.length > 0 && constraintsPairs.length != constraints.size()) {
+            return false;
+        }
+
+        if (!constraints.isEmpty()) {
+            List<Protos.Attribute> attributes = this.margeAttribute(offer);
+            for (Constraint constraint : constraints) {
+                boolean found = constraint.matches(attributes);
+
+                if (!found) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     private ArrayList<Constraint> getMatchConstraints() {
@@ -45,38 +65,12 @@ class ConstraintsChecker {
         return constraintList;
     }
 
-    boolean constraintsAllow(Protos.Offer offer) {
-
-        ArrayList<Constraint> constraints = this.getMatchConstraints();
-
-        if (this.constraintsPairs.length > 0 && constraintsPairs.length != constraints.size()) {
-            return false;
-        }
-
-        if (!constraints.isEmpty()) {
-            List<Protos.Attribute> attributes = this.margeAttribute(offer);
-            for (Constraint constraint : constraints) {
-                boolean found = constraint.matches(attributes);
-
-                if (!found) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-
-
     private List<Protos.Attribute> margeAttribute(Protos.Offer offer) {
-
-        List<Protos.Attribute> mergeAttributes = new ArrayList<>();
 
         Protos.Value.Text hostnameText = Protos.Value.Text.newBuilder().setValue(offer.getHostname()).build();
         Protos.Attribute hostnameAttribute = Protos.Attribute.newBuilder().setName("hostname").setText(hostnameText).setType(Protos.Value.Type.TEXT).build();
 
-        mergeAttributes.addAll(offer.getAttributesList());
+        List<Protos.Attribute> mergeAttributes = new ArrayList<>(offer.getAttributesList());
 
         if (!contains(mergeAttributes, "hostname")) {
             mergeAttributes.add(hostnameAttribute);

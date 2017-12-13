@@ -1,4 +1,4 @@
-package com.farmaprom.utils;
+package com.farmaprom.rundeck.plugin.logger;
 
 public class Log {
     private Integer level;

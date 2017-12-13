@@ -1,4 +1,4 @@
-package com.farmaprom.helpers;
+package com.farmaprom.rundeck.plugin.helpers;
 
 import com.dtolabs.rundeck.plugins.step.PluginStepContext;
 import org.apache.commons.lang.StringUtils;

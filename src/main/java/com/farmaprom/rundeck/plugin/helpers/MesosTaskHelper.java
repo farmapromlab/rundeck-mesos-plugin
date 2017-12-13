@@ -1,11 +1,11 @@
-package com.farmaprom.helpers;
+package com.farmaprom.rundeck.plugin.helpers;
 
-import com.farmaprom.logger.LoggerWrapper;
+import com.farmaprom.rundeck.plugin.logger.LoggerWrapper;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import org.apache.mesos.Protos;
+import org.apache.mesos.v1.Protos;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -40,7 +40,7 @@ public class MesosTaskHelper {
         String directory = "";
         while (Objects.equals(directory, "")) {
             try {
-                directory = this.getDirectoryTashRunning(
+                directory = this.getDirectoryTaskRunning(
                         parser,
                         this.getSlaveHostName(parser, mesosMasterIP, mesosMasterPort, slaveID),
                         frameworkID,
@@ -49,7 +49,7 @@ public class MesosTaskHelper {
                 );
 
                 if (Objects.equals(directory, "")) {
-                    directory = this.getDirectoryTashFinish(
+                    directory = this.getDirectoryTaskFinish(
                             parser,
                             this.getSlaveHostName(parser, mesosMasterIP, mesosMasterPort, slaveID),
                             frameworkID,
@@ -162,7 +162,7 @@ public class MesosTaskHelper {
     }
 
     private String getSalveId(LoggerWrapper loggerWrapper) {
-        return loggerWrapper.task.getSlaveId().getValue();
+        return loggerWrapper.task.getAgentId().getValue();
     }
 
     private String getTaskId(LoggerWrapper loggerWrapper) {
@@ -184,7 +184,7 @@ public class MesosTaskHelper {
         String taskID = this.getTaskId(loggerWrapper);
 
         String slaveHostName = this.getSlaveHostName(parser, mesosMasterIP, mesosMasterPort, slaveID);
-        String directory = this.getDirectoryTashFinish(parser, slaveHostName, frameworkID, slaveID, taskID);
+        String directory = this.getDirectoryTaskFinish(parser, slaveHostName, frameworkID, slaveID, taskID);
 
         String stderr = getLogFileData(slaveHostName, directory, "stderr");
 
@@ -249,7 +249,7 @@ public class MesosTaskHelper {
         return slaveHostName;
     }
 
-    private String getDirectoryTashFinish(JSONParser parser, String slaveHostName, String executeFrameworkID, String slaveID, String taskID) {
+    private String getDirectoryTaskFinish(JSONParser parser, String slaveHostName, String executeFrameworkID, String slaveID, String taskID) {
         String directory = "";
 
         try {
@@ -289,7 +289,7 @@ public class MesosTaskHelper {
     }
 
 
-    private String getDirectoryTashRunning(JSONParser parser, String slaveHostName, String executeFrameworkID, String slaveID, String taskID) {
+    private String getDirectoryTaskRunning(JSONParser parser, String slaveHostName, String executeFrameworkID, String slaveID, String taskID) {
         String directory = "";
 
         try {
