@@ -1,16 +1,12 @@
-plugins {
-    id 'pl.allegro.tech.build.axion-release' version '1.8.1'
-}
-
 ext.pluginClassNames='com.farmaprom.rundeck.plugin.MesosStepPlugin'
-ext.rundeckPluginVersion= '2.0'
+ext.rundeckPluginVersion= '1.0.1'
 
 defaultTasks 'clean','build'
-group 'com.farmaprom'
+group 'com.farmaprom.rundeck'
 apply plugin: 'java'
-apply plugin: 'pl.allegro.tech.build.axion-release'
+
 sourceCompatibility = 1.8
-version '2.6.9'
+version = System.env.TRAVIS_TAG ?: "SNAPSHOT"
 
 configurations{
     pluginLibs
@@ -26,47 +22,19 @@ repositories {
 
 dependencies {
     compile(
-            [group: 'org.rundeck', name: 'rundeck-core', version: version],
-            [group: 'org.apache.mesos', name: 'mesos', version: '1.4.1', ext:'jar'],
-            [group: 'com.google.protobuf', name: 'protobuf-java', version: '3.1.0', ext:'jar'],
-            [group: 'log4j', name: 'log4j', version: '1.2.16', ext:'jar'],
-
-            [group: 'com.mashape.unirest', name: 'unirest-java', version: '1.4.9', ext:'jar'],
-            [group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.6.5', ext:'jar'],
-            [group: 'com.googlecode.json-simple', name: 'json-simple', version: '1.1', ext:'jar'],
+            [group: 'org.rundeck', name: 'rundeck-core', version: '2.10.1'],
 
     )
 
     pluginLibs(
             [group: 'org.apache.mesos', name: 'mesos', version: '1.4.1'],
             [group: 'com.google.protobuf', name: 'protobuf-java', version: '3.1.0'],
-
+            [group: 'log4j', name: 'log4j', version: '1.2.16', ext:'jar'],
             [group: 'com.mashape.unirest', name: 'unirest-java', version: '1.4.9'],
             [group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.6.5'],
             [group: 'com.googlecode.json-simple', name: 'json-simple', version: '1.1'],
     )
-
-    testCompile(
-//            [group: 'junit', name: 'junit', version: '4.12']
-    )
 }
-
-scmVersion {
-    tag {
-        prefix = 'v'
-        versionSeparator = ''
-        def origDeserialize=deserialize
-        //apend .0 to satisfy semver if the tag version is only X.Y
-        deserialize = { config, position, tagName ->
-            def orig = origDeserialize(config, position, tagName)
-            if (orig.split('\\.').length < 3) {
-                orig += ".0"
-            }
-            orig
-        }
-    }
-}
-project.version = scmVersion.version
 
 // task to copy plugin libs to output/lib dir
 task copyToLib(type: Copy) {
@@ -80,16 +48,23 @@ jar {
     manifest {
         def libList = configurations.pluginLibs.collect {'lib/' + it.name}.join(' ')
 
-        attributes 'Rundeck-Plugin-File-Version': version,
-                'Rundeck-Plugin-Version': rundeckPluginVersion,
-                'Rundeck-Plugin-Archive': 'true',
-                'Rundeck-Plugin-Classnames': pluginClassNames,
-                'Rundeck-Plugin-Libs': "${libList}"
+        attributes 'Rundeck-Plugin-File-Version': version
+        attributes 'Rundeck-Plugin-Version': rundeckPluginVersion
+        attributes 'Rundeck-Plugin-Archive': 'true'
+        attributes 'Rundeck-Plugin-Classnames': pluginClassNames
+        attributes 'Rundeck-Plugin-Libs': "${libList}"
     }
+    jar.dependsOn(copyToLib)
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '3.1'
+    gradleVersion = '4.4'
 }
 
-jar.dependsOn(copyToLib)
+allprojects {
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile) {
+            options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+        }
+    }
+}
