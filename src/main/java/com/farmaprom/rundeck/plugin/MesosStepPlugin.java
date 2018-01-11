@@ -1,5 +1,6 @@
 package com.farmaprom.rundeck.plugin;
 
+import com.dtolabs.rundeck.core.execution.ExecutionLogger;
 import com.dtolabs.rundeck.core.execution.workflow.steps.FailureReason;
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepException;
 import com.dtolabs.rundeck.core.plugins.Plugin;
@@ -12,31 +13,26 @@ import com.dtolabs.rundeck.plugins.step.StepPlugin;
 import com.dtolabs.rundeck.plugins.util.DescriptionBuilder;
 import com.dtolabs.rundeck.plugins.util.PropertyBuilder;
 
+import com.farmaprom.rundeck.plugin.constraint.ConstraintsChecker;
 import com.farmaprom.rundeck.plugin.helpers.*;
-import com.farmaprom.rundeck.plugin.logger.LoggerWrapper;
-import com.farmaprom.rundeck.plugin.logger.Log;
-
+import com.farmaprom.rundeck.plugin.logger.MessosHttpTail;
+import com.farmaprom.rundeck.plugin.state.State;
 import org.apache.mesos.v1.Protos;
-import org.apache.mesos.v1.scheduler.Mesos;
-import org.apache.mesos.v1.scheduler.Scheduler;
-import org.apache.mesos.v1.scheduler.V1Mesos;
+
+import java.net.URI;
+
+import org.apache.mesos.v1.Protos.*;
 
 import java.net.UnknownHostException;
 import java.util.*;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
+import static com.dtolabs.rundeck.core.Constants.ERR_LEVEL;
 import static org.apache.mesos.v1.Protos.TaskState.TASK_FINISHED;
 import static org.apache.mesos.v1.Protos.TaskState.TASK_KILLED;
 
 @Plugin(name = MesosStepPlugin.SERVICE_PROVIDER_NAME, service = ServiceNameConstants.WorkflowStep)
 public class MesosStepPlugin implements StepPlugin, Describable {
-
     static final String SERVICE_PROVIDER_NAME = "com.farmaprom.rundeck.plugin.MesosStepPlugin";
-
-    private Mesos mesos;
 
     public Description getDescription() {
 
@@ -45,30 +41,12 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 .title("Mesos run once")
                 .description("Execute a Docker container on Mesos")
                 .property(PropertyBuilder.builder()
-                        .string("mesos_address")
-                        .title("Mesos address")
-                        .description("Mesos master address, zk://localhost:2181/mesos")
-                        .defaultValue("")
-                        .required(true)
-                        .build()
-                )
-                .property(PropertyBuilder.builder()
-                        .string("mesos_principal")
-                        .title("Mesos principal")
-                        .description("Principal for Mesos framework authentication")
-                        .defaultValue("")
-                        .required(false)
-                        .build()
-                )
-                .property(PropertyBuilder.builder()
-                        .string("mesos_password")
-                        .title("Mesos password")
-                        .description("Password for Mesos framework authentication")
-                        .renderingOption("selectionAccessor", StringRenderingConstants.SelectionAccessor.STORAGE_PATH)
-                        .renderingOption("valueConversion", StringRenderingConstants.ValueConversion.STORAGE_PATH_AUTOMATIC_READ)
-                        .defaultValue("")
-                        .required(false)
-                        .build()
+                                .string("mesos_address")
+                                .title("Mesos address")
+                                .description("Mesos master address, http://master:5050/api/v1/scheduler")
+                                .defaultValue("")
+                                .required(true)
+                                .build()
                 )
                 .property(PropertyBuilder.builder()
                         .string("mesos_fetcher")
@@ -77,6 +55,14 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .required(false)
                         .defaultValue("")
                         .renderingOption("displayType", StringRenderingConstants.DisplayType.MULTI_LINE)
+                        .build()
+                )
+                .property(PropertyBuilder.builder()
+                        .string("mesos_role")
+                        .title("Role")
+                        .description("Role for for Mesos framework")
+                        .defaultValue("*")
+                        .required(false)
                         .build()
                 )
                 .property(PropertyBuilder.builder()
@@ -91,7 +77,6 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .string("docker_image")
                         .title("Docker image")
                         .description("The Docker image to run")
-                        .defaultValue("")
                         .required(true)
                         .build()
                 )
@@ -122,7 +107,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .title("CPUs")
                         .description("How many CPUs your container needs.")
                         .required(true)
-                        .defaultValue("")
+                        .defaultValue("0.1")
                         .build()
                 )
                 .property(PropertyBuilder.builder()
@@ -130,7 +115,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .title("Memory")
                         .description("How much memory your container needs.")
                         .required(true)
-                        .defaultValue("")
+                        .defaultValue("128")
                         .build()
                 )
                 .property(PropertyBuilder.builder()
@@ -163,31 +148,29 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 .build();
     }
 
-    private enum Reason implements FailureReason{
+    private enum Reason implements FailureReason {
         ExampleReason
     }
 
-    public void executeStep(final PluginStepContext context, final Map<String, Object> configuration) throws
-            StepException {
+    public void executeStep(final PluginStepContext context, final Map<String, Object> configuration) throws StepException {
+        ExecutionLogger logger  = context.getExecutionContext().getExecutionLogger();
 
-        LoggerWrapper loggerWrapper = new LoggerWrapper();
+        String taskId = TaskIdGeneratorHelper.getTaskId(context);
 
-        Lock lock = new ReentrantLock();
+        final Protos.FrameworkID frameworkID = Protos.FrameworkID.newBuilder().setValue(UUID.randomUUID().toString()).build();
+        final State<FrameworkID> stateObject = new State<>(
+                frameworkID,
+                configuration.get("mesos_role").toString(),
+                Double.parseDouble(configuration.get("docker_cpus").toString()),
+                Double.parseDouble(configuration.get("docker_memory").toString()),
+                "Rundeck Mesos Plugin: "
+                        + context.getDataContextObject().get("job").get("name")
+                        + " "
+                        + context.getDataContextObject().get("job").get("execid"),
+                getHostName()
+        );
 
-        Condition finishedCondition = lock.newCondition();
-
-        String hostName = "";
-        try {
-            hostName = java.net.InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException ignored) {
-        }
-
-        Protos.FrameworkInfo.Builder frameworkBuilder = Protos.FrameworkInfo.newBuilder()
-                .setUser(System.getProperty("user.name", "default-rundeck-user"))
-                .setFailoverTimeout(0)
-                .setHostname(hostName)
-                .setName("Rundeck Mesos Plugin")
-                .addCapabilities(Protos.FrameworkInfo.Capability.newBuilder().setType(Protos.FrameworkInfo.Capability.Type.TASK_KILLING_STATE));
+        final URI mesosUri = URI.create(configuration.get("mesos_address").toString());
 
         Boolean dockerShell = !Boolean.parseBoolean(configuration.get("docker_shell").toString());
 
@@ -208,114 +191,70 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         List<Protos.Parameter> parameters = ParametersHelper.createParametersBuilder(configuration);
 
-        Protos.Credential.Builder credentialBuilder = CredentialHelper.crateCredentialBuilder(frameworkBuilder, configuration);
-
-        Scheduler scheduler = new Framework.DockerScheduler(
-                frameworkBuilder.build(),
-                loggerWrapper,
-                lock,
-                finishedCondition,
-                commandInfo,
-                volumes,
+        ContainerInfo.Builder containerInfo = createContainerInfo(
+                configuration.get("docker_image").toString(),
+                Boolean.parseBoolean(configuration.get("docker_force_pull").toString()),
                 parameters,
-                configuration,
-                context
+                volumes
         );
 
+        MessosHttpTail messosHttpTail = new MessosHttpTail(logger);
 
-
-        Thread mesosDriverThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                {
-                    synchronized (this) {
-                        try {
-                            String mesosAddress = configuration.get("mesos_address").toString();
-                            if (credentialBuilder != null) {
-                                mesos = new V1Mesos(scheduler, mesosAddress, credentialBuilder.build());
-                            } else {
-                                mesos = new V1Mesos(scheduler, mesosAddress);
-                            }
-
-                            lock.lock();
-                            try {
-                                while (!Framework.finished) {
-                                    finishedCondition.await();
-                                }
-                            } finally {
-                                lock.unlock();
-                            }
-                        } catch (Exception e) {
-                            teardownFramework(loggerWrapper);
-                        }
-                    }
-                }
-            }
-        });
-
-        MesosTaskHelper mesosTaskHelper = new MesosTaskHelper();
-
-        Thread mesosTaskTailThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                {
-                    synchronized (this) {
-                        try {
-                            mesosTaskHelper.mesosTailStdOut(loggerWrapper);
-                        } catch (Exception e) {
-                            loggerWrapper.stoptMesosTailWait();
-                            mesosTaskHelper.stopTail();
-                        }
-                    }
-                }
-            }
-        });
+        MesosSchedulerClient scheduler = new MesosSchedulerClient(taskId, commandInfo, containerInfo, new ConstraintsChecker(""), stateObject, messosHttpTail, 1, logger);
 
         try {
-            mesosDriverThread.start();
-            mesosTaskTailThread.start();
+            scheduler.init(mesosUri);
 
-            mesosDriverThread.join();
-            mesosTaskTailThread.join();
+            closeStep(messosHttpTail, logger);
+        } catch(InterruptedException e) {
+            scheduler.close();
+            messosHttpTail.finishTail();
 
-            mesosTaskHelper.getMesosTaskOutput(loggerWrapper);
-
-            teardownFramework(loggerWrapper);
-
-            for (Map.Entry<Integer, Log> log : loggerWrapper.getMessages().entrySet()) {
-                context.getLogger().log(log.getValue().getLevel(), log.getValue().getMessage());
-            }
-
-            if (loggerWrapper.taskStatus != null && TASK_FINISHED != loggerWrapper.taskStatus.getState()) {
-
-                this.addTaskErrorLog(context, loggerWrapper);
-
-                throw new StepException("Task status: " + loggerWrapper.taskStatus.getState(), Reason.ExampleReason);
-            }
-
-        } catch (CancellationException | InterruptedException e) {
+            scheduler = null;
             throw new StepException("Task status: " + TASK_KILLED, Reason.ExampleReason);
-        } finally {
-            teardownFramework(loggerWrapper);
-            loggerWrapper.stoptMesosTailWait();
-            mesosTaskHelper.stopTail();
-
-            this.addTaskErrorLog(context, loggerWrapper);
         }
+
+        scheduler = null;
     }
 
-    private void addTaskErrorLog(PluginStepContext context, LoggerWrapper loggerWrapper)
-    {
-        if (loggerWrapper.taskStatus != null) {
-            context.getLogger().log(5, loggerWrapper.taskStatus.getMessage());
-            context.getLogger().log(5, loggerWrapper.taskStatus.getReason().toString());
+    private static ContainerInfo.Builder createContainerInfo(String imageName, boolean forcePullImage, List<Protos.Parameter> parameters, List<Protos.Volume> volumes) {
+        ContainerInfo.DockerInfo.Builder dockerInfoBuilder = ContainerInfo.DockerInfo.newBuilder();
+        dockerInfoBuilder.setImage(imageName);
+        dockerInfoBuilder.setNetwork(ContainerInfo.DockerInfo.Network.BRIDGE);
+        dockerInfoBuilder.setForcePullImage(forcePullImage);
+        if (!parameters.isEmpty()) {
+            dockerInfoBuilder.addAllParameters(parameters);
         }
+
+        ContainerInfo.Builder containerInfoBuilder = ContainerInfo.newBuilder();
+        containerInfoBuilder.setType(ContainerInfo.Type.DOCKER);
+        containerInfoBuilder.setDocker(dockerInfoBuilder.build());
+        if (!volumes.isEmpty()) {
+            containerInfoBuilder.addAllVolumes(volumes);
+        }
+
+        return containerInfoBuilder;
     }
 
-    private void teardownFramework(LoggerWrapper loggerWrapper)
+    private static String getHostName()
     {
-        if (mesos != null) {
-            Framework.teardownFramework(mesos, loggerWrapper);
+        String hostName = "";
+        try {
+            hostName = java.net.InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException ignored) {
+        }
+
+        return hostName;
+    }
+
+    private static void closeStep(MessosHttpTail messosHttpTail, ExecutionLogger logger) throws StepException {
+        if (messosHttpTail.getTaskState() == null || messosHttpTail.getTaskState() != TASK_FINISHED) {
+            if (messosHttpTail.getTaskStateMessage() != null && messosHttpTail.getTaskStateReason() != null) {
+                logger.log(ERR_LEVEL, messosHttpTail.getTaskStateMessage());
+                logger.log(ERR_LEVEL, messosHttpTail.getTaskStateReason().toString());
+            }
+
+            throw new StepException("Task status: " + messosHttpTail.getTaskState(), Reason.ExampleReason);
         }
     }
 }
