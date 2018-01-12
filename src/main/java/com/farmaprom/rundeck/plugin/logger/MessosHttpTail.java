@@ -147,9 +147,9 @@ public class MessosHttpTail {
                         this.tail = false;
                         break;
                     }
-
-                    this.filesRead();
                 }
+
+                this.filesRead();
 
             } catch (MalformedURLException | URISyntaxException | UnirestException | ParseException e) {
                 e.printStackTrace();

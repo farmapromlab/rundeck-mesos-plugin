@@ -119,6 +119,7 @@ public class MesosSchedulerClient {
     public void close() {
         if (openStream != null) {
             if (!openStream.isUnsubscribed()) {
+                logger.log(DEBUG_LEVEL, "Unsubscribe open stream");
                 openStream.unsubscribe();
             }
         }
@@ -198,6 +199,8 @@ public class MesosSchedulerClient {
                             .map((Tuple<Event, State<FrameworkID>> t) -> {
                                 logger.log(DEBUG_LEVEL, "Framework teardown " + state.getFwId());
                                 launchedTasks--;
+                                messosHttpTail.finishTail();
+
                                 return teardown(state.getFwId());
                             })
                             .map(SinkOperations::sink)
@@ -211,14 +214,15 @@ public class MesosSchedulerClient {
                 });
 
 
-        com.mesosphere.mesos.rx.java.MesosClient<Call, Event> client = clientBuilder.build();
-
-        openStream = client.openStream();
-
         try {
+            com.mesosphere.mesos.rx.java.MesosClient<Call, Event> client = clientBuilder.build();
+
+            openStream = client.openStream();
+
             openStream.await();
         } catch (Throwable e) {
             e.printStackTrace();
+            messosHttpTail.finishTail();
             close();
         }
     }

@@ -206,6 +206,8 @@ public class MesosStepPlugin implements StepPlugin, Describable {
             scheduler.init(mesosUri);
 
             closeStep(messosHttpTail, logger);
+
+            scheduler.close();
         } catch(InterruptedException e) {
             scheduler.close();
             messosHttpTail.finishTail();
