@@ -45,6 +45,7 @@ public class MessosHttpTail {
     private String agentLogDir;
 
     private boolean tailWait = true;
+    private boolean tailFinish = false;
     private boolean tail = true;
     private Integer offset = 0;
 
@@ -118,6 +119,7 @@ public class MessosHttpTail {
     }
 
     public void finishTail() {
+        this.tailFinish = true;
         this.tailWait = false;
         this.tail = false;
     }
@@ -129,6 +131,9 @@ public class MessosHttpTail {
     public void initTailStdOut() {
         try {
             while (this.tailWait || this.getUrl() == null) {
+                if (this.tailFinish) {
+                    break;
+                }
                 Thread.sleep(2000);
             }
         } catch (InterruptedException e) {

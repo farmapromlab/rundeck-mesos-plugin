@@ -4,10 +4,7 @@ import com.dtolabs.rundeck.core.execution.ExecutionLogger;
 import com.farmaprom.rundeck.plugin.logger.MessosHttpTail;
 import com.farmaprom.rundeck.plugin.state.State;
 import com.farmaprom.rundeck.plugin.state.Tuple;
-import com.mesosphere.mesos.rx.java.AwaitableSubscription;
-import com.mesosphere.mesos.rx.java.MesosClientBuilder;
-import com.mesosphere.mesos.rx.java.SinkOperation;
-import com.mesosphere.mesos.rx.java.SinkOperations;
+import com.mesosphere.mesos.rx.java.*;
 import com.mesosphere.mesos.rx.java.protobuf.ProtoUtils;
 import com.mesosphere.mesos.rx.java.protobuf.ProtobufMesosClientBuilder;
 import com.mesosphere.mesos.rx.java.protobuf.SchedulerCalls;
@@ -85,7 +82,12 @@ public class MesosSchedulerClient {
                 @Override
                 public void run() {
                     synchronized (this) {
-                        connect(mesosUri);
+                        try {
+                            connect(mesosUri);
+                        } catch (Throwable e) {
+                            close();
+                            messosHttpTail.finishTail();
+                        }
                     }
                 }
             });
@@ -97,8 +99,8 @@ public class MesosSchedulerClient {
                         synchronized (this) {
                             try {
                                 messosHttpTail.initTailStdOut();
-                            } catch (Exception e) {
-                                e.printStackTrace();
+                            } catch (Throwable e) {
+                                close();
                                 messosHttpTail.finishTail();
                             }
                         }
@@ -127,7 +129,7 @@ public class MesosSchedulerClient {
 
     private void connect(
             final URI mesosUri
-    ) {
+    ) throws Throwable {
         final MesosClientBuilder<Call, Event> clientBuilder = ProtobufMesosClientBuilder.schedulerUsingProtos()
                 .mesosUri(mesosUri)
                 .applicationUserAgentEntry(userAgentEntryForMavenArtifact("com.farmaprom.rundeck", "rundeck-mesos-farmaprom-framework"));
@@ -210,21 +212,18 @@ public class MesosSchedulerClient {
                             .mergeWith(updateStatusAck)
                             .mergeWith(offerSuppress)
                             .mergeWith(terminate)
-                            .mergeWith(errorLogger);
+                            .mergeWith(errorLogger)
+                            .doOnError(
+                                    (throwable) -> {
+                                        logger.log(ERR_LEVEL, throwable.getMessage());
+                                    }
+                            );
                 });
 
 
-        try {
-            com.mesosphere.mesos.rx.java.MesosClient<Call, Event> client = clientBuilder.build();
-
-            openStream = client.openStream();
-
-            openStream.await();
-        } catch (Throwable e) {
-            e.printStackTrace();
-            messosHttpTail.finishTail();
-            close();
-        }
+        MesosClient<Call, Event> client = clientBuilder.build();
+        openStream = client.openStream();
+        openStream.await();
     }
 
     private SinkOperation<Call> handleOffer(

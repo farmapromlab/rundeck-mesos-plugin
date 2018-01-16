@@ -38,7 +38,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         return DescriptionBuilder.builder()
                 .name(SERVICE_PROVIDER_NAME)
-                .title("Mesos run once")
+                .title("Mesos step")
                 .description("Execute a Docker container on Mesos")
                 .property(PropertyBuilder.builder()
                                 .string("mesos_address")
