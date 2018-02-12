@@ -6,11 +6,10 @@ import java.util.Map;
 
 public class EnvironmentHelper {
 
-    public static Protos.Environment.Builder createEnvironmentBuilder(final Map<String, Object> configuration)
-    {
+    public static Protos.Environment.Builder createEnvironmentBuilder(final Map<String, Object> configuration) {
         Protos.Environment.Builder environment = Protos.Environment.newBuilder();
 
-        String dockerEnvVars = configuration.get("docker_env_vars").toString();
+        String dockerEnvVars = configuration.get("docker_env_vars").toString().trim();
 
         if (!dockerEnvVars.isEmpty()) {
             String[] split = dockerEnvVars.split("\\r?\\n");
@@ -18,11 +17,13 @@ public class EnvironmentHelper {
             for (String lineEnvironment : split) {
                 String[] environmentArray = lineEnvironment.split("=");
 
-                Protos.Environment.Variable variable = Protos.Environment.Variable.newBuilder()
-                        .setName(environmentArray[0])
-                        .setValue(environmentArray[1])
-                        .build();
-                environment.addVariables(variable);
+                if (environmentArray.length == 2) {
+                    Protos.Environment.Variable variable = Protos.Environment.Variable.newBuilder()
+                            .setName(environmentArray[0])
+                            .setValue(environmentArray[1])
+                            .build();
+                    environment.addVariables(variable);
+                }
             }
         }
 

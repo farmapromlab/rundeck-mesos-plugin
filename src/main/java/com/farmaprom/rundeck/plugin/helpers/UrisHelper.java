@@ -12,18 +12,13 @@ public class UrisHelper {
     {
         List<Protos.CommandInfo.URI> uris = new ArrayList<>();
 
-        String mesosFetcher = configuration.get("mesos_fetcher").toString();
+        String mesosFetcher = configuration.get("mesos_fetcher").toString().trim();
         if (!mesosFetcher.isEmpty()) {
             String[] split = mesosFetcher.split("\\r?\\n");
-            for (String aSplit : split) {
-                Protos.CommandInfo.URI uri = Protos.CommandInfo.URI.newBuilder()
-                        .setValue(aSplit)
-                        .setExtract(true)
-                        .setExecutable(false)
-                        .setCache(false)
-                        .build();
-
-                uris.add(uri);
+            for (String uri : split) {
+                uris.add(
+                    Protos.CommandInfo.URI.newBuilder().setValue(uri).setExtract(true).setExecutable(false).setCache(false).build()
+                );
             }
         }
 

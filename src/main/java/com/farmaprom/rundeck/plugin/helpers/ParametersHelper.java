@@ -8,22 +8,23 @@ import java.util.Map;
 
 public class ParametersHelper {
 
-    public static List<Protos.Parameter> createParametersBuilder(final Map<String, Object> configuration)
-    {
+    public static List<Protos.Parameter> createParametersBuilder(final Map<String, Object> configuration) {
         List<Protos.Parameter> parameters = new ArrayList<>();
 
-        String dockerParameters = configuration.get("docker_parameters").toString();
+        String dockerParameters = configuration.get("docker_parameters").toString().trim();
         if (!dockerParameters.isEmpty()) {
             String[] splits = dockerParameters.split("\\r?\\n");
             for (String split : splits) {
-                String[] pairs = split.split("=");
+                String[] parameterArray = split.split("=");
 
-                Protos.Parameter uri = Protos.Parameter.newBuilder()
-                        .setKey(pairs[0])
-                        .setValue(pairs[1])
-                        .build();
+                if (parameterArray.length == 2) {
+                    Protos.Parameter uri = Protos.Parameter.newBuilder()
+                            .setKey(parameterArray[0])
+                            .setValue(parameterArray[1])
+                            .build();
+                    parameters.add(uri);
+                }
 
-                parameters.add(uri);
             }
         }
 

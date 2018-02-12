@@ -78,6 +78,15 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                         .title("Docker image")
                         .description("The Docker image to run")
                         .required(true)
+                        .defaultValue("")
+                        .build()
+                )
+                .property(PropertyBuilder.builder()
+                        .string("docker_image_tag")
+                        .title("Docker image tag")
+                        .description("The Docker image tag to run")
+                        .required(false)
+                        .defaultValue("")
                         .build()
                 )
                 .property(PropertyBuilder.builder()
@@ -192,7 +201,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
         List<Protos.Parameter> parameters = ParametersHelper.createParametersBuilder(configuration);
 
         ContainerInfo.Builder containerInfo = createContainerInfo(
-                configuration.get("docker_image").toString(),
+                DockerImageHelper.parseDockerImageTag(configuration),
                 Boolean.parseBoolean(configuration.get("docker_force_pull").toString()),
                 parameters,
                 volumes
@@ -214,6 +223,11 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
             scheduler = null;
             throw new StepException("Task status: " + TASK_KILLED, Reason.ExampleReason);
+        } catch(Exception e) {
+            e.printStackTrace();
+
+            throw new StepException("Task exception", Reason.ExampleReason);
+
         }
 
         scheduler = null;

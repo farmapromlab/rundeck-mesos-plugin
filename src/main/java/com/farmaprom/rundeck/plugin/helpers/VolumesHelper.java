@@ -12,7 +12,7 @@ public class VolumesHelper {
     {
         List<Protos.Volume> volumes = new ArrayList<>();
 
-        String mesosFetcher = configuration.get("docker_volumes").toString();
+        String mesosFetcher = configuration.get("docker_volumes").toString().trim();
         if (!mesosFetcher.isEmpty()) {
             String[] split = mesosFetcher.split("\\r?\\n");
             for (String lineVolume : split) {
