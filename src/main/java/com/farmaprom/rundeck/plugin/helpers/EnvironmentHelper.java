@@ -15,7 +15,7 @@ public class EnvironmentHelper {
             String[] split = dockerEnvVars.split("\\r?\\n");
 
             for (String lineEnvironment : split) {
-                String[] environmentArray = lineEnvironment.split("=");
+                String[] environmentArray = lineEnvironment.split("=", 2);
 
                 if (environmentArray.length == 2) {
                     Protos.Environment.Variable variable = Protos.Environment.Variable.newBuilder()
