@@ -173,6 +173,8 @@ public class MesosStepPlugin implements StepPlugin, Describable {
                 Double.parseDouble(configuration.get("docker_cpus").toString()),
                 Double.parseDouble(configuration.get("docker_memory").toString()),
                 "Rundeck Mesos Plugin: "
+                        + context.getFrameworkProject()
+                        + " "
                         + context.getDataContextObject().get("job").get("name")
                         + " "
                         + context.getDataContextObject().get("job").get("execid"),
@@ -193,6 +195,7 @@ public class MesosStepPlugin implements StepPlugin, Describable {
         }
 
         commandInfo.setEnvironment(EnvironmentHelper.createEnvironmentBuilder(configuration).build());
+        commandInfo.mergeEnvironment(EnvironmentHelper.createMesosTaskIdEnvironment(taskId));
 
         commandInfo.addAllUris(UrisHelper.crateUrisBuilder(configuration));
 

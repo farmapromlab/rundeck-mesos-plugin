@@ -10,7 +10,7 @@ public class TaskIdGeneratorHelper {
 
         String taskId = context.getDataContextObject().get("job").get("project")
                 + "-" + context.getDataContextObject().get("job").get("name")
-                + "-" + UUID.randomUUID().toString();
+                + "." + UUID.randomUUID().toString();
 
         return StringUtils.replace(taskId.toLowerCase(), " ", "-");
     }

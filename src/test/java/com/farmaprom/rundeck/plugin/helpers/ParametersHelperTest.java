@@ -16,12 +16,13 @@ public class ParametersHelperTest {
     public void testIsCorrectCreateParametersBuilder() {
 
         Map<String, Object> configuration = new HashMap<>();
-        configuration.put("docker_parameters", "param1=foo\nparam2=bar");
+        configuration.put("docker_parameters", "param1=foo\nparam2=bar\nparam3=value=value");
 
         List<Protos.Parameter> parameters = new ArrayList<>();
 
         parameters.add(Protos.Parameter.newBuilder().setKey("param1").setValue("foo").build());
         parameters.add(Protos.Parameter.newBuilder().setKey("param2").setValue("bar").build());
+        parameters.add(Protos.Parameter.newBuilder().setKey("param3").setValue("value=value").build());
 
         assertEquals(ParametersHelper.createParametersBuilder(configuration), parameters);
     }

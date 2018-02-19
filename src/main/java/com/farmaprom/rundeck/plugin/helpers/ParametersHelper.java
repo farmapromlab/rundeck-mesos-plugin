@@ -15,7 +15,7 @@ public class ParametersHelper {
         if (!dockerParameters.isEmpty()) {
             String[] splits = dockerParameters.split("\\r?\\n");
             for (String split : splits) {
-                String[] parameterArray = split.split("=");
+                String[] parameterArray = split.split("=", 2);
 
                 if (parameterArray.length == 2) {
                     Protos.Parameter uri = Protos.Parameter.newBuilder()

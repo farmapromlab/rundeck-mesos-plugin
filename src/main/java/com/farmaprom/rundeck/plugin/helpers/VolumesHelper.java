@@ -16,7 +16,7 @@ public class VolumesHelper {
         if (!mesosFetcher.isEmpty()) {
             String[] split = mesosFetcher.split("\\r?\\n");
             for (String lineVolume : split) {
-                String[] volumeArray = lineVolume.split(":");
+                String[] volumeArray = lineVolume.split(":", 2);
                 if (volumeArray.length == 2) {
                     Protos.Volume volume = Protos.Volume.newBuilder()
                             .setHostPath(volumeArray[0])

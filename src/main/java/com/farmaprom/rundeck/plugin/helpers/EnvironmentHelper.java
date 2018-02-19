@@ -29,4 +29,16 @@ public class EnvironmentHelper {
 
         return environment;
     }
+
+    public static  Protos.Environment createMesosTaskIdEnvironment(String taskId)
+    {
+        Protos.Environment.Builder environment = Protos.Environment.newBuilder();
+
+        environment.addVariables(Protos.Environment.Variable.newBuilder()
+                .setName("MESOS_TASK_ID")
+                .setValue(taskId)
+                .build());
+
+        return environment.build();
+    }
 }
