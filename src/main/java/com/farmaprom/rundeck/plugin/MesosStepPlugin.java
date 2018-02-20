@@ -212,7 +212,16 @@ public class MesosStepPlugin implements StepPlugin, Describable {
 
         MessosHttpTail messosHttpTail = new MessosHttpTail(logger);
 
-        MesosSchedulerClient scheduler = new MesosSchedulerClient(taskId, commandInfo, containerInfo, new ConstraintsChecker(""), stateObject, messosHttpTail, 1, logger);
+        MesosSchedulerClient scheduler = new MesosSchedulerClient(
+                taskId,
+                commandInfo,
+                containerInfo,
+                new ConstraintsChecker(configuration.get("mesos_constraints").toString()),
+                stateObject,
+                messosHttpTail,
+                1,
+                logger
+        );
 
         try {
             scheduler.init(mesosUri);
